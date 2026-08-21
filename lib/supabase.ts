@@ -1,0 +1,13 @@
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY!;
+
+// Este cliente SOLO debe usarse en el servidor (API routes, Server Components).
+// Nunca importar este archivo desde un componente "use client".
+export const supabaseAdmin = createClient(supabaseUrl, supabaseSecretKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false,
+  },
+});
