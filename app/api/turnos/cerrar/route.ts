@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   const body = await request.json();
-  const { turno_id, efectivo_entregado, remanente } = body;
+  const { turno_id, efectivo_entregado, remanente, desglose_efectivo } = body;
 
   if (!turno_id || efectivo_entregado === undefined || remanente === undefined) {
     return NextResponse.json({ error: "Faltan datos requeridos" }, { status: 400 });
@@ -17,6 +17,7 @@ export async function POST(request: Request) {
       estado: "cerrado",
       efectivo_entregado,
       remanente,
+      desglose_efectivo: desglose_efectivo ?? null,
     })
     .eq("id", turno_id)
     .select()

@@ -15,6 +15,7 @@ export interface Turno {
   estado: "abierto" | "cerrado";
   efectivo_entregado: number | null;
   remanente: number | null;
+  desglose_efectivo: Record<string, number> | null;
 }
 
 export type TipoMovimiento = "compra_agua" | "compra_gasoleo" | "venta" | "gasto" | "alerta_sobrante";

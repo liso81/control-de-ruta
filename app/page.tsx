@@ -13,6 +13,7 @@ const CATEGORIAS_GASTO = [
   "Otros",
 ];
 const UMBRAL_SOBRANTE = 0.01;
+const DENOMINACIONES = [5000, 2000, 1000, 500, 200];
 
 export default function Home() {
   const [cargando, setCargando] = useState(true);
@@ -112,9 +113,23 @@ export default function Home() {
       setError(json.error);
       return false;
     }
-    // Refrescamos movimientos y el camión (stock) en paralelo, y ESPERAMOS
-    // a que ambos terminen antes de dar por completada la operación, para
-    // que la existencia mostrada en pantalla siempre quede al día.
+    await Promise.all([cargarMovimientos(turno.id), recargarCamion(camion.id)]);
+    return true;
+  }
+
+  async function editarMovimiento(id: string, datos: Partial<Movimiento>) {
+    if (!turno || !camion) return false;
+    setError("");
+    const res = await fetch(`/api/movimientos/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...datos, camion_id: camion.id }),
+    });
+    const json = await res.json();
+    if (json.error) {
+      setError(json.error);
+      return false;
+    }
     await Promise.all([cargarMovimientos(turno.id), recargarCamion(camion.id)]);
     return true;
   }
@@ -144,7 +159,6 @@ export default function Home() {
     );
   }
 
-  // --- Pantalla: vincular dispositivo ---
   if (!camion) {
     return (
       <main className="min-h-screen p-6 max-w-md mx-auto">
@@ -169,7 +183,6 @@ export default function Home() {
     );
   }
 
-  // --- Pantalla: pedir nombre del chofer ---
   if (pideNombre) {
     return (
       <main className="min-h-screen p-6 max-w-md mx-auto flex flex-col justify-center gap-4">
@@ -197,7 +210,6 @@ export default function Home() {
     );
   }
 
-  // --- Pantalla principal ---
   return (
     <main className="min-h-screen p-4 max-w-md mx-auto">
       <h1 className="text-3xl font-black mb-1">CONTROL DE RUTA</h1>
@@ -234,7 +246,7 @@ export default function Home() {
           efectivoDisponible={efectivoDisponible}
           alertas={alertas}
           onGuardarFondo={(monto) => registrarFondo(turno, monto, setTurno)}
-          onCerrarDia={(entregado, remanente) => cerrarDia(turno, entregado, remanente, setTurno)}
+          onCerrarDia={(entregado, remanente, desglose) => cerrarDia(turno, entregado, remanente, desglose, setTurno)}
         />
       )}
 
@@ -244,14 +256,17 @@ export default function Home() {
           camion={camion}
           precioPromedioHoy={precioPromedioHoy}
           onRegistrar={registrarMovimiento}
+          onEditar={editarMovimiento}
         />
       )}
 
       {tab === "ventas" && (
-        <TabVentas movimientos={ventas} camion={camion} onRegistrar={registrarMovimiento} />
+        <TabVentas movimientos={ventas} camion={camion} onRegistrar={registrarMovimiento} onEditar={editarMovimiento} />
       )}
 
-      {tab === "gastos" && <TabGastos movimientos={gastos} onRegistrar={registrarMovimiento} />}
+      {tab === "gastos" && (
+        <TabGastos movimientos={gastos} onRegistrar={registrarMovimiento} onEditar={editarMovimiento} />
+      )}
     </main>
   );
 }
@@ -266,11 +281,17 @@ async function registrarFondo(turno: Turno, monto: number, setTurno: (t: Turno) 
   if (json.turno) setTurno(json.turno);
 }
 
-async function cerrarDia(turno: Turno, entregado: number, remanente: number, setTurno: (t: Turno) => void) {
+async function cerrarDia(
+  turno: Turno,
+  entregado: number,
+  remanente: number,
+  desglose: Record<number, number>,
+  setTurno: (t: Turno) => void
+) {
   const res = await fetch("/api/turnos/cerrar", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ turno_id: turno.id, efectivo_entregado: entregado, remanente }),
+    body: JSON.stringify({ turno_id: turno.id, efectivo_entregado: entregado, remanente, desglose_efectivo: desglose }),
   });
   const json = await res.json();
   if (json.turno) setTurno(json.turno);
@@ -299,13 +320,20 @@ function TabResumen({
   efectivoDisponible: number;
   alertas: Movimiento[];
   onGuardarFondo: (monto: number) => void;
-  onCerrarDia: (entregado: number, remanente: number) => void;
+  onCerrarDia: (entregado: number, remanente: number, desglose: Record<number, number>) => void;
 }) {
   const [fondoInput, setFondoInput] = useState("");
-  const [entregadoInput, setEntregadoInput] = useState("");
-  const entregado = parseFloat(entregadoInput) || 0;
-  const remanente = efectivoDisponible - entregado;
+  const [billetes, setBilletes] = useState<Record<number, string>>(
+    Object.fromEntries(DENOMINACIONES.map((d) => [d, ""]))
+  );
   const cerrado = turno.estado === "cerrado";
+
+  const entregado = DENOMINACIONES.reduce((acc, d) => acc + d * (parseInt(billetes[d]) || 0), 0);
+  const remanente = efectivoDisponible - entregado;
+
+  function actualizarBillete(denom: number, valor: string) {
+    setBilletes((prev) => ({ ...prev, [denom]: valor }));
+  }
 
   return (
     <div className="space-y-2">
@@ -356,19 +384,35 @@ function TabResumen({
 
           <div className="pt-3">
             <p className="font-semibold">Cerrar día / Liquidar</p>
-            <p className="text-sm text-gray-600">Efectivo entregado al dueño</p>
-            <input
-              type="number"
-              value={entregadoInput}
-              onChange={(e) => setEntregadoInput(e.target.value)}
-              placeholder="0.00"
-              className="border rounded-lg p-2 w-full mt-1"
-            />
+            <p className="text-sm text-gray-600 mb-1">Desglose de efectivo entregado</p>
+            <div className="space-y-1">
+              {DENOMINACIONES.map((d) => (
+                <div key={d} className="flex items-center gap-2">
+                  <span className="w-16 text-sm">{d}</span>
+                  <input
+                    type="number"
+                    value={billetes[d]}
+                    onChange={(e) => actualizarBillete(d, e.target.value)}
+                    placeholder="0"
+                    className="border rounded-lg p-2 flex-1"
+                  />
+                  <span className="w-24 text-sm text-right text-gray-600">
+                    = {(d * (parseInt(billetes[d]) || 0)).toFixed(2)}
+                  </span>
+                </div>
+              ))}
+            </div>
             <p className="mt-2">
+              Total entregado: <strong>{entregado.toFixed(2)}</strong>
+            </p>
+            <p>
               Remanente (pasa a mañana): <strong>{remanente.toFixed(2)}</strong>
             </p>
             <button
-              onClick={() => onCerrarDia(entregado, remanente)}
+              onClick={() => {
+                const desglose = Object.fromEntries(DENOMINACIONES.map((d) => [d, parseInt(billetes[d]) || 0]));
+                onCerrarDia(entregado, remanente, desglose);
+              }}
               className="border rounded-lg p-2 mt-2 w-full font-semibold"
             >
               Cerrar día
@@ -378,9 +422,22 @@ function TabResumen({
       )}
 
       {cerrado && (
-        <p className="pt-3 text-green-700 font-semibold">
-          Día cerrado. Efectivo entregado: {turno.efectivo_entregado?.toFixed(2)} · Remanente: {turno.remanente?.toFixed(2)}
-        </p>
+        <div className="pt-3">
+          <p className="text-green-700 font-semibold">
+            Día cerrado. Efectivo entregado: {turno.efectivo_entregado?.toFixed(2)} · Remanente: {turno.remanente?.toFixed(2)}
+          </p>
+          {turno.desglose_efectivo && (
+            <div className="text-sm text-gray-600 mt-1">
+              {Object.entries(turno.desglose_efectivo as Record<string, number>)
+                .filter(([, cant]) => cant > 0)
+                .map(([denom, cant]) => (
+                  <p key={denom}>
+                    {cant} × {denom} = {(Number(denom) * cant).toFixed(2)}
+                  </p>
+                ))}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
@@ -400,14 +457,18 @@ function TabCompras({
   camion,
   precioPromedioHoy,
   onRegistrar,
+  onEditar,
 }: {
   movimientos: Movimiento[];
   camion: Camion;
   precioPromedioHoy: number | null;
   onRegistrar: (datos: Partial<Movimiento> & { tipo: TipoMovimiento }) => Promise<boolean>;
+  onEditar: (id: string, datos: Partial<Movimiento>) => Promise<boolean>;
 }) {
   const [valorAgua, setValorAgua] = useState("");
   const [precioGasoleo, setPrecioGasoleo] = useState("");
+  const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [montoEdit, setMontoEdit] = useState("");
 
   async function registrarCompraAgua() {
     const litrosRestantes = camion.litros_actual;
@@ -436,6 +497,16 @@ function TabCompras({
 
     await onRegistrar({ tipo: "compra_agua", monto: parseFloat(valorAgua) || 0 });
     setValorAgua("");
+  }
+
+  function empezarEdicion(m: Movimiento) {
+    setEditandoId(m.id);
+    setMontoEdit(String(m.monto ?? ""));
+  }
+
+  async function guardarEdicion(m: Movimiento) {
+    const ok = await onEditar(m.id, { monto: parseFloat(montoEdit) || 0 });
+    if (ok) setEditandoId(null);
   }
 
   return (
@@ -476,7 +547,41 @@ function TabCompras({
         </button>
       </div>
 
-      <ListaMovimientos movimientos={movimientos} />
+      <div className="pt-3 space-y-1">
+        {movimientos.length === 0 && <p className="text-gray-500">Sin registros hoy</p>}
+        {movimientos.map((m) => (
+          <div key={m.id} className="text-sm border-b pb-2">
+            {editandoId === m.id ? (
+              <div className="space-y-1 py-1">
+                <input
+                  type="number"
+                  value={montoEdit}
+                  onChange={(e) => setMontoEdit(e.target.value)}
+                  className="border rounded-lg p-2 w-full"
+                />
+                <div className="flex gap-2">
+                  <button onClick={() => guardarEdicion(m)} className="border rounded-lg px-3 py-1 font-semibold flex-1">
+                    Guardar
+                  </button>
+                  <button onClick={() => setEditandoId(null)} className="border rounded-lg px-3 py-1 flex-1">
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex justify-between items-center">
+                <span>{m.tipo === "compra_agua" ? "Agua" : "Gasóleo"}</span>
+                <span className="flex items-center gap-2">
+                  {(m.monto ?? 0).toFixed(2)}
+                  <button onClick={() => empezarEdicion(m)} className="text-xs border rounded px-2 py-0.5">
+                    Editar
+                  </button>
+                </span>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -485,10 +590,12 @@ function TabVentas({
   movimientos,
   camion,
   onRegistrar,
+  onEditar,
 }: {
   movimientos: Movimiento[];
   camion: Camion;
   onRegistrar: (datos: Partial<Movimiento> & { tipo: TipoMovimiento }) => Promise<boolean>;
+  onEditar: (id: string, datos: Partial<Movimiento>) => Promise<boolean>;
 }) {
   const [litros, setLitros] = useState("");
   const [efectivo, setEfectivo] = useState("");
@@ -497,6 +604,15 @@ function TabVentas({
   const [clienteNota, setClienteNota] = useState("");
   const [clienteTelefono, setClienteTelefono] = useState("");
   const [errorLocal, setErrorLocal] = useState("");
+  const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [edit, setEdit] = useState<{
+    litros: string;
+    efectivo: string;
+    transferencia: string;
+    credito: string;
+    clienteNota: string;
+    clienteTelefono: string;
+  } | null>(null);
 
   const importeTotal = (parseFloat(efectivo) || 0) + (parseFloat(transferencia) || 0) + (parseFloat(credito) || 0);
   const litrosNum = parseFloat(litros) || 0;
@@ -530,6 +646,35 @@ function TabVentas({
       setClienteNota("");
       setClienteTelefono("");
     }
+  }
+
+  function empezarEdicion(m: Movimiento) {
+    setEditandoId(m.id);
+    setEdit({
+      litros: String(m.litros ?? ""),
+      efectivo: String(m.efectivo ?? ""),
+      transferencia: String(m.transferencia ?? ""),
+      credito: String(m.credito ?? ""),
+      clienteNota: m.cliente_nota ?? "",
+      clienteTelefono: m.cliente_telefono ?? "",
+    });
+  }
+
+  async function guardarEdicion(m: Movimiento) {
+    if (!edit) return;
+    const litrosE = parseFloat(edit.litros) || 0;
+    const importeE = (parseFloat(edit.efectivo) || 0) + (parseFloat(edit.transferencia) || 0) + (parseFloat(edit.credito) || 0);
+    const ok = await onEditar(m.id, {
+      litros: litrosE,
+      precio_litro: litrosE > 0 ? importeE / litrosE : null,
+      monto: importeE,
+      efectivo: parseFloat(edit.efectivo) || 0,
+      transferencia: parseFloat(edit.transferencia) || 0,
+      credito: parseFloat(edit.credito) || 0,
+      cliente_nota: edit.clienteNota || null,
+      cliente_telefono: edit.clienteTelefono || null,
+    });
+    if (ok) setEditandoId(null);
   }
 
   return (
@@ -613,7 +758,79 @@ function TabVentas({
         Registrar venta
       </button>
 
-      <ListaMovimientos movimientos={movimientos} />
+      <div className="pt-3 space-y-1">
+        {movimientos.length === 0 && <p className="text-gray-500">Sin registros hoy</p>}
+        {movimientos.map((m) => (
+          <div key={m.id} className="text-sm border-b pb-2">
+            {editandoId === m.id && edit ? (
+              <div className="space-y-1 py-1">
+                <p className="text-xs text-gray-500">Litros</p>
+                <input
+                  type="number"
+                  value={edit.litros}
+                  onChange={(e) => setEdit({ ...edit, litros: e.target.value })}
+                  className="border rounded-lg p-2 w-full"
+                />
+                <p className="text-xs text-gray-500">Cliente</p>
+                <input
+                  type="text"
+                  value={edit.clienteNota}
+                  onChange={(e) => setEdit({ ...edit, clienteNota: e.target.value })}
+                  className="border rounded-lg p-2 w-full"
+                />
+                <p className="text-xs text-gray-500">Teléfono</p>
+                <input
+                  type="text"
+                  value={edit.clienteTelefono}
+                  onChange={(e) => setEdit({ ...edit, clienteTelefono: e.target.value })}
+                  className="border rounded-lg p-2 w-full"
+                />
+                <p className="text-xs text-gray-500">Efectivo</p>
+                <input
+                  type="number"
+                  value={edit.efectivo}
+                  onChange={(e) => setEdit({ ...edit, efectivo: e.target.value })}
+                  className="border rounded-lg p-2 w-full"
+                />
+                <p className="text-xs text-gray-500">Transferencia</p>
+                <input
+                  type="number"
+                  value={edit.transferencia}
+                  onChange={(e) => setEdit({ ...edit, transferencia: e.target.value })}
+                  className="border rounded-lg p-2 w-full"
+                />
+                <p className="text-xs text-gray-500">Crédito</p>
+                <input
+                  type="number"
+                  value={edit.credito}
+                  onChange={(e) => setEdit({ ...edit, credito: e.target.value })}
+                  className="border rounded-lg p-2 w-full"
+                />
+                <div className="flex gap-2 pt-1">
+                  <button onClick={() => guardarEdicion(m)} className="border rounded-lg px-3 py-1 font-semibold flex-1">
+                    Guardar
+                  </button>
+                  <button onClick={() => setEditandoId(null)} className="border rounded-lg px-3 py-1 flex-1">
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex justify-between items-center">
+                <span>
+                  venta · {m.litros}L {m.cliente_nota ? `· ${m.cliente_nota}` : ""}
+                </span>
+                <span className="flex items-center gap-2">
+                  {(m.monto ?? 0).toFixed(2)}
+                  <button onClick={() => empezarEdicion(m)} className="text-xs border rounded px-2 py-0.5">
+                    Editar
+                  </button>
+                </span>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -621,13 +838,18 @@ function TabVentas({
 function TabGastos({
   movimientos,
   onRegistrar,
+  onEditar,
 }: {
   movimientos: Movimiento[];
   onRegistrar: (datos: Partial<Movimiento> & { tipo: TipoMovimiento }) => Promise<boolean>;
+  onEditar: (id: string, datos: Partial<Movimiento>) => Promise<boolean>;
 }) {
   const [categoria, setCategoria] = useState(CATEGORIAS_GASTO[0]);
   const [observacion, setObservacion] = useState("");
   const [monto, setMonto] = useState("");
+  const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [categoriaEdit, setCategoriaEdit] = useState("");
+  const [montoEdit, setMontoEdit] = useState("");
 
   const esOtros = categoria === "Otros";
 
@@ -638,6 +860,17 @@ function TabGastos({
       setMonto("");
       setObservacion("");
     }
+  }
+
+  function empezarEdicion(m: Movimiento) {
+    setEditandoId(m.id);
+    setCategoriaEdit(m.categoria ?? "");
+    setMontoEdit(String(m.monto ?? ""));
+  }
+
+  async function guardarEdicion(m: Movimiento) {
+    const ok = await onEditar(m.id, { categoria: categoriaEdit, monto: parseFloat(montoEdit) || 0 });
+    if (ok) setEditandoId(null);
   }
 
   return (
@@ -677,25 +910,47 @@ function TabGastos({
         Registrar gasto
       </button>
 
-      <ListaMovimientos movimientos={movimientos} />
-    </div>
-  );
-}
-
-function ListaMovimientos({ movimientos }: { movimientos: Movimiento[] }) {
-  if (movimientos.length === 0) {
-    return <p className="text-gray-500 pt-3">Sin registros hoy</p>;
-  }
-  return (
-    <div className="pt-3 space-y-1">
-      {movimientos.map((m) => (
-        <div key={m.id} className="text-sm border-b pb-1 flex justify-between">
-          <span>
-            {m.categoria ?? m.tipo} {m.litros ? `· ${m.litros}L` : ""} {m.cliente_nota ? `· ${m.cliente_nota}` : ""}
-          </span>
-          <span>{(m.monto ?? 0).toFixed(2)}</span>
-        </div>
-      ))}
+      <div className="pt-3 space-y-1">
+        {movimientos.length === 0 && <p className="text-gray-500">Sin registros hoy</p>}
+        {movimientos.map((m) => (
+          <div key={m.id} className="text-sm border-b pb-2">
+            {editandoId === m.id ? (
+              <div className="space-y-1 py-1">
+                <input
+                  type="text"
+                  value={categoriaEdit}
+                  onChange={(e) => setCategoriaEdit(e.target.value)}
+                  className="border rounded-lg p-2 w-full"
+                />
+                <input
+                  type="number"
+                  value={montoEdit}
+                  onChange={(e) => setMontoEdit(e.target.value)}
+                  className="border rounded-lg p-2 w-full"
+                />
+                <div className="flex gap-2">
+                  <button onClick={() => guardarEdicion(m)} className="border rounded-lg px-3 py-1 font-semibold flex-1">
+                    Guardar
+                  </button>
+                  <button onClick={() => setEditandoId(null)} className="border rounded-lg px-3 py-1 flex-1">
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex justify-between items-center">
+                <span>{m.categoria}</span>
+                <span className="flex items-center gap-2">
+                  {(m.monto ?? 0).toFixed(2)}
+                  <button onClick={() => empezarEdicion(m)} className="text-xs border rounded px-2 py-0.5">
+                    Editar
+                  </button>
+                </span>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
