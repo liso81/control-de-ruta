@@ -90,12 +90,20 @@ function PantallaLogin({ onLogin }: { onLogin: () => void }) {
 function PanelCamiones() {
   const [camiones, setCamiones] = useState<Camion[]>([]);
   const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState("");
+
   const [nombreNuevo, setNombreNuevo] = useState("");
   const [capacidadNueva, setCapacidadNueva] = useState("");
-  const [error, setError] = useState("");
+  const [matriculaNueva, setMatriculaNueva] = useState("");
+  const [marcaNueva, setMarcaNueva] = useState("");
+  const [kmLitroNuevo, setKmLitroNuevo] = useState("");
+
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [nombreEdit, setNombreEdit] = useState("");
   const [capacidadEdit, setCapacidadEdit] = useState("");
+  const [matriculaEdit, setMatriculaEdit] = useState("");
+  const [marcaEdit, setMarcaEdit] = useState("");
+  const [kmLitroEdit, setKmLitroEdit] = useState("");
 
   useEffect(() => {
     cargarCamiones();
@@ -117,13 +125,19 @@ function PanelCamiones() {
   async function crearCamion() {
     setError("");
     if (!nombreNuevo.trim() || !capacidadNueva) {
-      setError("Completá nombre y capacidad");
+      setError("Completá al menos nombre y capacidad");
       return;
     }
     const res = await fetch("/api/admin/camiones", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nombre: nombreNuevo.trim(), capacidad_litros: parseFloat(capacidadNueva) }),
+      body: JSON.stringify({
+        nombre: nombreNuevo.trim(),
+        capacidad_litros: parseFloat(capacidadNueva),
+        matricula: matriculaNueva.trim() || null,
+        marca: marcaNueva.trim() || null,
+        km_por_litro: kmLitroNuevo ? parseFloat(kmLitroNuevo) : null,
+      }),
     });
     const json = await res.json();
     if (json.error) {
@@ -132,6 +146,9 @@ function PanelCamiones() {
     }
     setNombreNuevo("");
     setCapacidadNueva("");
+    setMatriculaNueva("");
+    setMarcaNueva("");
+    setKmLitroNuevo("");
     await cargarCamiones();
   }
 
@@ -139,6 +156,9 @@ function PanelCamiones() {
     setEditandoId(c.id);
     setNombreEdit(c.nombre);
     setCapacidadEdit(String(c.capacidad_litros));
+    setMatriculaEdit(c.matricula ?? "");
+    setMarcaEdit(c.marca ?? "");
+    setKmLitroEdit(c.km_por_litro !== null ? String(c.km_por_litro) : "");
   }
 
   async function guardarEdicion(id: string) {
@@ -146,7 +166,13 @@ function PanelCamiones() {
     const res = await fetch(`/api/admin/camiones/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nombre: nombreEdit.trim(), capacidad_litros: parseFloat(capacidadEdit) }),
+      body: JSON.stringify({
+        nombre: nombreEdit.trim(),
+        capacidad_litros: parseFloat(capacidadEdit),
+        matricula: matriculaEdit.trim() || null,
+        marca: marcaEdit.trim() || null,
+        km_por_litro: kmLitroEdit ? parseFloat(kmLitroEdit) : null,
+      }),
     });
     const json = await res.json();
     if (json.error) {
@@ -177,16 +203,39 @@ function PanelCamiones() {
           <div key={c.id} className="border rounded-lg p-3">
             {editandoId === c.id ? (
               <div className="space-y-2">
+                <p className="text-xs text-gray-500">Nombre</p>
                 <input
                   type="text"
                   value={nombreEdit}
                   onChange={(e) => setNombreEdit(e.target.value)}
                   className="border rounded-lg p-2 w-full"
                 />
+                <p className="text-xs text-gray-500">Capacidad (litros)</p>
                 <input
                   type="number"
                   value={capacidadEdit}
                   onChange={(e) => setCapacidadEdit(e.target.value)}
+                  className="border rounded-lg p-2 w-full"
+                />
+                <p className="text-xs text-gray-500">Matrícula</p>
+                <input
+                  type="text"
+                  value={matriculaEdit}
+                  onChange={(e) => setMatriculaEdit(e.target.value)}
+                  className="border rounded-lg p-2 w-full"
+                />
+                <p className="text-xs text-gray-500">Marca</p>
+                <input
+                  type="text"
+                  value={marcaEdit}
+                  onChange={(e) => setMarcaEdit(e.target.value)}
+                  className="border rounded-lg p-2 w-full"
+                />
+                <p className="text-xs text-gray-500">Km por litro</p>
+                <input
+                  type="number"
+                  value={kmLitroEdit}
+                  onChange={(e) => setKmLitroEdit(e.target.value)}
                   className="border rounded-lg p-2 w-full"
                 />
                 <div className="flex gap-2">
@@ -208,6 +257,12 @@ function PanelCamiones() {
                   <p className="text-sm text-gray-500">
                     {c.litros_actual.toFixed(2)} L / {c.capacidad_litros.toFixed(2)} L
                   </p>
+                  {(c.matricula || c.marca || c.km_por_litro) && (
+                    <p className="text-xs text-gray-400">
+                      {c.marca ?? ""} {c.matricula ? `· ${c.matricula}` : ""}{" "}
+                      {c.km_por_litro ? `· ${c.km_por_litro} km/L` : ""}
+                    </p>
+                  )}
                 </div>
                 <button onClick={() => empezarEdicion(c)} className="text-xs border rounded px-2 py-1">
                   Editar
@@ -233,6 +288,27 @@ function PanelCamiones() {
           value={capacidadNueva}
           onChange={(e) => setCapacidadNueva(e.target.value)}
           placeholder="Capacidad en litros"
+          className="border rounded-lg p-2 w-full mb-2"
+        />
+        <input
+          type="text"
+          value={matriculaNueva}
+          onChange={(e) => setMatriculaNueva(e.target.value)}
+          placeholder="Matrícula"
+          className="border rounded-lg p-2 w-full mb-2"
+        />
+        <input
+          type="text"
+          value={marcaNueva}
+          onChange={(e) => setMarcaNueva(e.target.value)}
+          placeholder="Marca"
+          className="border rounded-lg p-2 w-full mb-2"
+        />
+        <input
+          type="number"
+          value={kmLitroNuevo}
+          onChange={(e) => setKmLitroNuevo(e.target.value)}
+          placeholder="Km por litro"
           className="border rounded-lg p-2 w-full mb-2"
         />
         <button onClick={crearCamion} className="border rounded-lg p-2 w-full font-semibold">

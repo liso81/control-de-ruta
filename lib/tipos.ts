@@ -3,6 +3,9 @@ export interface Camion {
   nombre: string;
   capacidad_litros: number;
   litros_actual: number;
+  matricula: string | null;
+  marca: string | null;
+  km_por_litro: number | null;
 }
 
 export interface Turno {

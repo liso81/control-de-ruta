@@ -19,11 +19,36 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const { id } = await params;
   const body = await request.json();
-  const { nombre, capacidad_litros } = body;
+  const { nombre, capacidad_litros, matricula, marca, km_por_litro } = body;
+
+  const { data: original, error: errorOriginal } = await supabaseAdmin
+    .from("camiones")
+    .select("capacidad_litros, litros_actual")
+    .eq("id", id)
+    .single();
+
+  if (errorOriginal || !original) {
+    return NextResponse.json({ error: "Camión no encontrado" }, { status: 404 });
+  }
 
   const cambios: Record<string, unknown> = {};
   if (nombre !== undefined) cambios.nombre = nombre;
-  if (capacidad_litros !== undefined) cambios.capacidad_litros = capacidad_litros;
+  if (matricula !== undefined) cambios.matricula = matricula;
+  if (marca !== undefined) cambios.marca = marca;
+  if (km_por_litro !== undefined) cambios.km_por_litro = km_por_litro;
+
+  // Si cambia la capacidad, ajustamos la existencia actual por la misma
+  // diferencia (delta), y la topeamos para que nunca supere la nueva
+  // capacidad ni baje de 0.
+  if (capacidad_litros !== undefined && capacidad_litros !== original.capacidad_litros) {
+    const delta = capacidad_litros - original.capacidad_litros;
+    const nuevaExistencia = Math.min(
+      capacidad_litros,
+      Math.max(0, original.litros_actual + delta)
+    );
+    cambios.capacidad_litros = capacidad_litros;
+    cambios.litros_actual = nuevaExistencia;
+  }
 
   const { data, error } = await supabaseAdmin
     .from("camiones")

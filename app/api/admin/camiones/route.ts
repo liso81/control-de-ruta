@@ -33,7 +33,7 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const { nombre, capacidad_litros } = body;
+  const { nombre, capacidad_litros, matricula, marca, km_por_litro } = body;
 
   if (!nombre || !capacidad_litros) {
     return NextResponse.json({ error: "Faltan nombre o capacidad" }, { status: 400 });
@@ -41,7 +41,14 @@ export async function POST(request: Request) {
 
   const { data, error } = await supabaseAdmin
     .from("camiones")
-    .insert({ nombre, capacidad_litros, litros_actual: capacidad_litros })
+    .insert({
+      nombre,
+      capacidad_litros,
+      litros_actual: capacidad_litros,
+      matricula: matricula ?? null,
+      marca: marca ?? null,
+      km_por_litro: km_por_litro ?? null,
+    })
     .select()
     .single();
 
