@@ -475,41 +475,48 @@ function TabCompras({
   const [precioGasoleo, setPrecioGasoleo] = useState("");
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [montoEdit, setMontoEdit] = useState("");
+  const [procesandoAgua, setProcesandoAgua] = useState(false);
+  const [procesandoGasoleo, setProcesandoGasoleo] = useState(false);
 
   async function registrarCompraAgua() {
-    const litrosRestantes = camion.litros_actual;
-    const estaLleno = litrosRestantes >= camion.capacidad_litros - UMBRAL_SOBRANTE;
+    if (procesandoAgua) return; // evita doble-toque mientras procesa
+    setProcesandoAgua(true);
+    try {
+      const litrosRestantes = camion.litros_actual;
+      const estaLleno = litrosRestantes >= camion.capacidad_litros - UMBRAL_SOBRANTE;
 
-    // Si el tanque ya está lleno, no tiene sentido recargar: bloqueamos.
-    if (estaLleno) {
-      window.alert("El tanque ya está lleno (100%). No hace falta recargar todavía.");
-      return;
-    }
-
-    if (litrosRestantes > UMBRAL_SOBRANTE) {
-      let mensaje = `Todavía quedan ${litrosRestantes.toFixed(2)} L sin vender en la cisterna.`;
-      let dineroPerdido: number | null = null;
-
-      if (precioPromedioHoy) {
-        dineroPerdido = litrosRestantes * precioPromedioHoy;
-        mensaje += ` Eso representa aproximadamente ${dineroPerdido.toFixed(2)} dejados de ganar.`;
+      if (estaLleno) {
+        window.alert("El tanque ya está lleno (100%). No hace falta recargar todavía.");
+        return;
       }
 
-      mensaje += " ¿Confirmás la recarga de todos modos?";
+      if (litrosRestantes > UMBRAL_SOBRANTE) {
+        let mensaje = `Todavía quedan ${litrosRestantes.toFixed(2)} L sin vender en la cisterna.`;
+        let dineroPerdido: number | null = null;
 
-      const confirma = window.confirm(mensaje);
-      if (!confirma) return;
+        if (precioPromedioHoy) {
+          dineroPerdido = litrosRestantes * precioPromedioHoy;
+          mensaje += ` Eso representa aproximadamente ${dineroPerdido.toFixed(2)} dejados de ganar.`;
+        }
 
-      await onRegistrar({
-        tipo: "alerta_sobrante",
-        litros: litrosRestantes,
-        monto: dineroPerdido,
-        categoria: "Litros sobrantes al recargar",
-      });
+        mensaje += " ¿Confirmás la recarga de todos modos?";
+
+        const confirma = window.confirm(mensaje);
+        if (!confirma) return;
+
+        await onRegistrar({
+          tipo: "alerta_sobrante",
+          litros: litrosRestantes,
+          monto: dineroPerdido,
+          categoria: "Litros sobrantes al recargar",
+        });
+      }
+
+      await onRegistrar({ tipo: "compra_agua", monto: parseFloat(valorAgua) || 0 });
+      setValorAgua("");
+    } finally {
+      setProcesandoAgua(false);
     }
-
-    await onRegistrar({ tipo: "compra_agua", monto: parseFloat(valorAgua) || 0 });
-    setValorAgua("");
   }
 
   function empezarEdicion(m: Movimiento) {
@@ -534,8 +541,12 @@ function TabCompras({
           placeholder="0.00"
           className="border rounded-lg p-2 w-full mt-1"
         />
-        <button onClick={registrarCompraAgua} className="border rounded-lg p-2 mt-2 w-full font-semibold">
-          Registrar compra de agua
+        <button
+          onClick={registrarCompraAgua}
+          disabled={procesandoAgua}
+          className="border rounded-lg p-2 mt-2 w-full font-semibold disabled:opacity-40"
+        >
+          {procesandoAgua ? "Procesando..." : "Registrar compra de agua"}
         </button>
       </div>
 
@@ -550,13 +561,20 @@ function TabCompras({
           className="border rounded-lg p-2 w-full mt-1"
         />
         <button
-          onClick={() => {
-            onRegistrar({ tipo: "compra_gasoleo", monto: parseFloat(precioGasoleo) || 0 });
-            setPrecioGasoleo("");
+          onClick={async () => {
+            if (procesandoGasoleo) return;
+            setProcesandoGasoleo(true);
+            try {
+              await onRegistrar({ tipo: "compra_gasoleo", monto: parseFloat(precioGasoleo) || 0 });
+              setPrecioGasoleo("");
+            } finally {
+              setProcesandoGasoleo(false);
+            }
           }}
-          className="border rounded-lg p-2 mt-2 w-full font-semibold"
+          disabled={procesandoGasoleo}
+          className="border rounded-lg p-2 mt-2 w-full font-semibold disabled:opacity-40"
         >
-          Registrar compra de gasóleo
+          {procesandoGasoleo ? "Procesando..." : "Registrar compra de gasóleo"}
         </button>
       </div>
 
