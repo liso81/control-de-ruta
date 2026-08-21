@@ -17,7 +17,7 @@ export interface Turno {
   remanente: number | null;
 }
 
-export type TipoMovimiento = "compra_agua" | "compra_gasoleo" | "venta" | "gasto";
+export type TipoMovimiento = "compra_agua" | "compra_gasoleo" | "venta" | "gasto" | "alerta_sobrante";
 
 export interface Movimiento {
   id: string;
