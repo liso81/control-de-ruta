@@ -68,19 +68,17 @@ export async function POST(request: Request) {
     }
   }
 
+  // Usamos una función SQL (RPC) para restar de forma atómica: la resta
+  // ocurre entera dentro de la base de datos, así que si llegan dos ventas
+  // casi al mismo tiempo, no se pisan entre sí.
   if (tipo === "venta" && camion_id && litros) {
-    const { data: camion } = await supabaseAdmin
-      .from("camiones")
-      .select("litros_actual")
-      .eq("id", camion_id)
-      .single();
+    const { error: errorResta } = await supabaseAdmin.rpc("restar_litros", {
+      camion_id_param: camion_id,
+      litros_param: litros,
+    });
 
-    if (camion) {
-      const nuevoStock = Math.max(0, camion.litros_actual - litros);
-      await supabaseAdmin
-        .from("camiones")
-        .update({ litros_actual: nuevoStock })
-        .eq("id", camion_id);
+    if (errorResta) {
+      return NextResponse.json({ error: errorResta.message }, { status: 500 });
     }
   }
 
