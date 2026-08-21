@@ -478,6 +478,13 @@ function TabCompras({
 
   async function registrarCompraAgua() {
     const litrosRestantes = camion.litros_actual;
+    const estaLleno = litrosRestantes >= camion.capacidad_litros - UMBRAL_SOBRANTE;
+
+    // Si el tanque ya está lleno, no tiene sentido recargar: bloqueamos.
+    if (estaLleno) {
+      window.alert("El tanque ya está lleno (100%). No hace falta recargar todavía.");
+      return;
+    }
 
     if (litrosRestantes > UMBRAL_SOBRANTE) {
       let mensaje = `Todavía quedan ${litrosRestantes.toFixed(2)} L sin vender en la cisterna.`;
