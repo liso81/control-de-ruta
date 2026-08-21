@@ -192,7 +192,13 @@ function PanelCamiones() {
         </button>
       </div>
 
-      <h2 className="font-semibold mb-2">Camiones</h2>
+      <div className="grid grid-cols-1 gap-2 mb-4">
+        <button className="border rounded-lg p-2 text-sm font-semibold bg-black text-white">
+          Vehículos
+        </button>
+      </div>
+
+      <h2 className="font-semibold mb-2">Vehículos</h2>
 
       {error && <p className="text-red-600 text-sm mb-2">{error}</p>}
 
