@@ -1,7 +1,26 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import type { Movimiento } from "@/lib/tipos";
 
 export const dynamic = "force-dynamic";
+
+function calcularEfectivoDisponible(
+  saldoInicial: number,
+  fondoDueno: number,
+  movimientos: Movimiento[]
+) {
+  const ventasEfectivo = movimientos
+    .filter((m) => m.tipo === "venta")
+    .reduce((acc, m) => acc + (m.efectivo ?? 0), 0);
+  const compras = movimientos
+    .filter((m) => m.tipo === "compra_agua" || m.tipo === "compra_gasoleo")
+    .reduce((acc, m) => acc + (m.monto ?? 0), 0);
+  const gastos = movimientos
+    .filter((m) => m.tipo === "gasto")
+    .reduce((acc, m) => acc + (m.monto ?? 0), 0);
+
+  return saldoInicial + fondoDueno + ventasEfectivo - compras - gastos;
+}
 
 export async function POST(request: Request) {
   const body = await request.json();
@@ -29,6 +48,37 @@ export async function POST(request: Request) {
       { error: "Para ventas a crédito hace falta el nombre y teléfono del cliente" },
       { status: 400 }
     );
+  }
+
+  // Si es un egreso (compra o gasto), verificamos que no supere el efectivo disponible.
+  if (tipo === "compra_agua" || tipo === "compra_gasoleo" || tipo === "gasto") {
+    const { data: turno } = await supabaseAdmin
+      .from("turnos")
+      .select("saldo_inicial, fondo_dueno")
+      .eq("id", turno_id)
+      .single();
+
+    const { data: movimientosExistentes } = await supabaseAdmin
+      .from("movimientos")
+      .select("*")
+      .eq("turno_id", turno_id);
+
+    if (turno) {
+      const disponible = calcularEfectivoDisponible(
+        turno.saldo_inicial ?? 0,
+        turno.fondo_dueno ?? 0,
+        (movimientosExistentes ?? []) as Movimiento[]
+      );
+
+      if ((monto ?? 0) > disponible) {
+        return NextResponse.json(
+          {
+            error: `No hay suficiente efectivo disponible. Disponible: ${disponible.toFixed(2)}, intentaste registrar: ${(monto ?? 0).toFixed(2)}.`,
+          },
+          { status: 400 }
+        );
+      }
+    }
   }
 
   const { data: movimiento, error: errorMovimiento } = await supabaseAdmin
@@ -68,9 +118,6 @@ export async function POST(request: Request) {
     }
   }
 
-  // Usamos una función SQL (RPC) para restar de forma atómica: la resta
-  // ocurre entera dentro de la base de datos, así que si llegan dos ventas
-  // casi al mismo tiempo, no se pisan entre sí.
   if (tipo === "venta" && camion_id && litros) {
     const { error: errorResta } = await supabaseAdmin.rpc("restar_litros", {
       camion_id_param: camion_id,
