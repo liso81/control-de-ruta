@@ -1,7 +1,26 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import type { Movimiento } from "@/lib/tipos";
 
 export const dynamic = "force-dynamic";
+
+function calcularEfectivoDisponible(
+  saldoInicial: number,
+  fondoDueno: number,
+  movimientos: Movimiento[]
+) {
+  const ventasEfectivo = movimientos
+    .filter((m) => m.tipo === "venta")
+    .reduce((acc, m) => acc + (m.efectivo ?? 0), 0);
+  const compras = movimientos
+    .filter((m) => m.tipo === "compra_agua" || m.tipo === "compra_gasoleo")
+    .reduce((acc, m) => acc + (m.monto ?? 0), 0);
+  const gastos = movimientos
+    .filter((m) => m.tipo === "gasto")
+    .reduce((acc, m) => acc + (m.monto ?? 0), 0);
+
+  return saldoInicial + fondoDueno + ventasEfectivo - compras - gastos;
+}
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -36,6 +55,39 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "Movimiento no encontrado" }, { status: 404 });
   }
 
+  // Si es un egreso, verificamos que el nuevo monto no supere el efectivo
+  // disponible (calculado SIN este movimiento, para no contarlo dos veces).
+  if (original.tipo === "compra_agua" || original.tipo === "compra_gasoleo" || original.tipo === "gasto") {
+    const { data: turno } = await supabaseAdmin
+      .from("turnos")
+      .select("saldo_inicial, fondo_dueno")
+      .eq("id", original.turno_id)
+      .single();
+
+    const { data: movimientosExistentes } = await supabaseAdmin
+      .from("movimientos")
+      .select("*")
+      .eq("turno_id", original.turno_id)
+      .neq("id", id);
+
+    if (turno) {
+      const disponibleSinEste = calcularEfectivoDisponible(
+        turno.saldo_inicial ?? 0,
+        turno.fondo_dueno ?? 0,
+        (movimientosExistentes ?? []) as Movimiento[]
+      );
+
+      if ((monto ?? 0) > disponibleSinEste) {
+        return NextResponse.json(
+          {
+            error: `No hay suficiente efectivo disponible. Disponible: ${disponibleSinEste.toFixed(2)}, intentaste dejarlo en: ${(monto ?? 0).toFixed(2)}.`,
+          },
+          { status: 400 }
+        );
+      }
+    }
+  }
+
   const { data: actualizado, error: errorUpdate } = await supabaseAdmin
     .from("movimientos")
     .update({
@@ -57,8 +109,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: errorUpdate.message }, { status: 500 });
   }
 
-  // Si es una venta y cambiaron los litros, ajustamos el stock del camión
-  // por la diferencia (delta), de forma atómica.
   if (original.tipo === "venta" && camion_id) {
     const litrosViejos = original.litros ?? 0;
     const litrosNuevos = litros ?? 0;

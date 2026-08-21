@@ -111,6 +111,9 @@ export default function Home() {
     const json = await res.json();
     if (json.error) {
       setError(json.error);
+      if (json.error.includes("efectivo disponible")) {
+        window.alert("⚠️ " + json.error);
+      }
       return false;
     }
     await Promise.all([cargarMovimientos(turno.id), recargarCamion(camion.id)]);
@@ -128,6 +131,9 @@ export default function Home() {
     const json = await res.json();
     if (json.error) {
       setError(json.error);
+      if (json.error.includes("efectivo disponible")) {
+        window.alert("⚠️ " + json.error);
+      }
       return false;
     }
     await Promise.all([cargarMovimientos(turno.id), recargarCamion(camion.id)]);
