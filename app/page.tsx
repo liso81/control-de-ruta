@@ -3,7 +3,15 @@
 import { useEffect, useState } from "react";
 import type { Camion, Turno, Movimiento, TipoMovimiento } from "@/lib/tipos";
 
-const CATEGORIAS_GASTO = ["Policía", "Comida", "Mecánica", "Peaje", "Otro"];
+const CATEGORIAS_GASTO = [
+  "Policía",
+  "Ponchera",
+  "Salario de motorista",
+  "Salario de ayudante",
+  "Alimentación",
+  "Gastos de reparaciones menores",
+  "Otros",
+];
 const UMBRAL_SOBRANTE = 0.01;
 
 export default function Home() {
@@ -33,18 +41,23 @@ export default function Home() {
     await cargarCamionYTurno(camionGuardado);
   }
 
+  async function recargarCamion(camionId: string) {
+    const res = await fetch("/api/camiones");
+    const json = await res.json();
+    const actualizado = (json.camiones ?? []).find((c: Camion) => c.id === camionId);
+    if (actualizado) setCamion(actualizado);
+    return actualizado as Camion | undefined;
+  }
+
   async function cargarCamionYTurno(camionId: string) {
     setCargando(true);
-    const resCamiones = await fetch("/api/camiones");
-    const jsonCamiones = await resCamiones.json();
-    const encontrado = (jsonCamiones.camiones ?? []).find((c: Camion) => c.id === camionId);
+    const encontrado = await recargarCamion(camionId);
     if (!encontrado) {
       localStorage.removeItem("camion_id");
       setCargando(false);
       iniciar();
       return;
     }
-    setCamion(encontrado);
     await abrirORetomarTurno(camionId);
     setCargando(false);
   }
@@ -87,7 +100,7 @@ export default function Home() {
   }
 
   async function registrarMovimiento(datos: Partial<Movimiento> & { tipo: TipoMovimiento }) {
-    if (!turno || !camion) return;
+    if (!turno || !camion) return false;
     setError("");
     const res = await fetch("/api/movimientos", {
       method: "POST",
@@ -97,13 +110,13 @@ export default function Home() {
     const json = await res.json();
     if (json.error) {
       setError(json.error);
-      return;
+      return false;
     }
-    await cargarMovimientos(turno.id);
-    const resCamiones = await fetch("/api/camiones");
-    const jsonCamiones = await resCamiones.json();
-    const actualizado = (jsonCamiones.camiones ?? []).find((c: Camion) => c.id === camion.id);
-    if (actualizado) setCamion(actualizado);
+    // Refrescamos movimientos y el camión (stock) en paralelo, y ESPERAMOS
+    // a que ambos terminen antes de dar por completada la operación, para
+    // que la existencia mostrada en pantalla siempre quede al día.
+    await Promise.all([cargarMovimientos(turno.id), recargarCamion(camion.id)]);
+    return true;
   }
 
   // --- Cálculos del resumen ---
@@ -391,7 +404,7 @@ function TabCompras({
   movimientos: Movimiento[];
   camion: Camion;
   precioPromedioHoy: number | null;
-  onRegistrar: (datos: Partial<Movimiento> & { tipo: TipoMovimiento }) => Promise<void>;
+  onRegistrar: (datos: Partial<Movimiento> & { tipo: TipoMovimiento }) => Promise<boolean>;
 }) {
   const [valorAgua, setValorAgua] = useState("");
   const [precioGasoleo, setPrecioGasoleo] = useState("");
@@ -475,21 +488,30 @@ function TabVentas({
 }: {
   movimientos: Movimiento[];
   camion: Camion;
-  onRegistrar: (datos: Partial<Movimiento> & { tipo: TipoMovimiento }) => Promise<void>;
+  onRegistrar: (datos: Partial<Movimiento> & { tipo: TipoMovimiento }) => Promise<boolean>;
 }) {
   const [litros, setLitros] = useState("");
   const [efectivo, setEfectivo] = useState("");
   const [transferencia, setTransferencia] = useState("");
   const [credito, setCredito] = useState("");
   const [clienteNota, setClienteNota] = useState("");
+  const [clienteTelefono, setClienteTelefono] = useState("");
+  const [errorLocal, setErrorLocal] = useState("");
 
   const importeTotal = (parseFloat(efectivo) || 0) + (parseFloat(transferencia) || 0) + (parseFloat(credito) || 0);
   const litrosNum = parseFloat(litros) || 0;
   const quedarian = camion.litros_actual - litrosNum;
   const excedeStock = litrosNum > camion.litros_actual;
+  const tieneCredito = (parseFloat(credito) || 0) > 0;
+  const faltanDatosCliente = tieneCredito && (!clienteNota.trim() || !clienteTelefono.trim());
 
-  function registrar() {
-    onRegistrar({
+  async function registrar() {
+    setErrorLocal("");
+    if (faltanDatosCliente) {
+      setErrorLocal("Para ventas a crédito hace falta el nombre y el teléfono del cliente.");
+      return;
+    }
+    const ok = await onRegistrar({
       tipo: "venta",
       litros: litrosNum,
       precio_litro: litrosNum > 0 ? importeTotal / litrosNum : null,
@@ -498,12 +520,16 @@ function TabVentas({
       transferencia: parseFloat(transferencia) || 0,
       credito: parseFloat(credito) || 0,
       cliente_nota: clienteNota || null,
+      cliente_telefono: clienteTelefono || null,
     });
-    setLitros("");
-    setEfectivo("");
-    setTransferencia("");
-    setCredito("");
-    setClienteNota("");
+    if (ok) {
+      setLitros("");
+      setEfectivo("");
+      setTransferencia("");
+      setCredito("");
+      setClienteNota("");
+      setClienteTelefono("");
+    }
   }
 
   return (
@@ -523,14 +549,29 @@ function TabVentas({
         </p>
       )}
 
-      <p className="text-sm text-gray-600">Cliente (opcional)</p>
+      <p className="text-sm text-gray-600">
+        Cliente {tieneCredito ? "(obligatorio para venta a crédito)" : "(opcional)"}
+      </p>
       <input
         type="text"
         value={clienteNota}
         onChange={(e) => setClienteNota(e.target.value)}
-        placeholder="Nombre o nota (dejar vacío si es venta suelta)"
+        placeholder="Nombre del cliente"
         className="border rounded-lg p-2 w-full"
       />
+
+      {tieneCredito && (
+        <>
+          <p className="text-sm text-gray-600">Teléfono del cliente (obligatorio para crédito)</p>
+          <input
+            type="tel"
+            value={clienteTelefono}
+            onChange={(e) => setClienteTelefono(e.target.value)}
+            placeholder="Ej: 923 456 789"
+            className="border rounded-lg p-2 w-full"
+          />
+        </>
+      )}
 
       <p className="font-semibold pt-2">Pago (se puede dividir)</p>
       <p className="text-sm text-gray-600">Efectivo</p>
@@ -562,9 +603,11 @@ function TabVentas({
         Importe total: <strong>{importeTotal.toFixed(2)}</strong>
       </p>
 
+      {errorLocal && <p className="text-red-600 text-sm">{errorLocal}</p>}
+
       <button
         onClick={registrar}
-        disabled={excedeStock}
+        disabled={excedeStock || faltanDatosCliente}
         className="border rounded-lg p-2 w-full font-semibold disabled:opacity-40"
       >
         Registrar venta
@@ -580,10 +623,22 @@ function TabGastos({
   onRegistrar,
 }: {
   movimientos: Movimiento[];
-  onRegistrar: (datos: Partial<Movimiento> & { tipo: TipoMovimiento }) => Promise<void>;
+  onRegistrar: (datos: Partial<Movimiento> & { tipo: TipoMovimiento }) => Promise<boolean>;
 }) {
   const [categoria, setCategoria] = useState(CATEGORIAS_GASTO[0]);
+  const [observacion, setObservacion] = useState("");
   const [monto, setMonto] = useState("");
+
+  const esOtros = categoria === "Otros";
+
+  async function registrar() {
+    const categoriaFinal = esOtros && observacion.trim() ? `Otros: ${observacion.trim()}` : categoria;
+    const ok = await onRegistrar({ tipo: "gasto", categoria: categoriaFinal, monto: parseFloat(monto) || 0 });
+    if (ok) {
+      setMonto("");
+      setObservacion("");
+    }
+  }
 
   return (
     <div className="space-y-2">
@@ -596,6 +651,19 @@ function TabGastos({
         ))}
       </select>
 
+      {esOtros && (
+        <>
+          <p className="text-sm text-gray-600">Observaciones</p>
+          <input
+            type="text"
+            value={observacion}
+            onChange={(e) => setObservacion(e.target.value)}
+            placeholder="Describí el gasto"
+            className="border rounded-lg p-2 w-full"
+          />
+        </>
+      )}
+
       <p className="text-sm text-gray-600">Monto</p>
       <input
         type="number"
@@ -605,13 +673,7 @@ function TabGastos({
         className="border rounded-lg p-2 w-full"
       />
 
-      <button
-        onClick={() => {
-          onRegistrar({ tipo: "gasto", categoria, monto: parseFloat(monto) || 0 });
-          setMonto("");
-        }}
-        className="border rounded-lg p-2 w-full font-semibold"
-      >
+      <button onClick={registrar} className="border rounded-lg p-2 w-full font-semibold">
         Registrar gasto
       </button>
 

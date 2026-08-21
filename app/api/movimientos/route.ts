@@ -5,10 +5,30 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   const body = await request.json();
-  const { turno_id, camion_id, tipo, litros, precio_litro, monto, efectivo, transferencia, credito, categoria, cliente_nota } = body;
+  const {
+    turno_id,
+    camion_id,
+    tipo,
+    litros,
+    precio_litro,
+    monto,
+    efectivo,
+    transferencia,
+    credito,
+    categoria,
+    cliente_nota,
+    cliente_telefono,
+  } = body;
 
   if (!turno_id || !tipo) {
     return NextResponse.json({ error: "Faltan datos requeridos" }, { status: 400 });
+  }
+
+  if ((credito ?? 0) > 0 && (!cliente_nota || !cliente_telefono)) {
+    return NextResponse.json(
+      { error: "Para ventas a crédito hace falta el nombre y teléfono del cliente" },
+      { status: 400 }
+    );
   }
 
   const { data: movimiento, error: errorMovimiento } = await supabaseAdmin
@@ -24,6 +44,7 @@ export async function POST(request: Request) {
       credito: credito ?? 0,
       categoria: categoria ?? null,
       cliente_nota: cliente_nota ?? null,
+      cliente_telefono: cliente_telefono ?? null,
     })
     .select()
     .single();

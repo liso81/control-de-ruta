@@ -31,5 +31,6 @@ export interface Movimiento {
   credito: number;
   categoria: string | null;
   cliente_nota: string | null;
+  cliente_telefono: string | null;
   created_at: string;
 }
