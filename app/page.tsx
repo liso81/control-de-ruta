@@ -177,9 +177,9 @@ export default function Home() {
               onClick={() => vincularCamion(c)}
               className="w-full border rounded-lg p-4 text-left hover:bg-gray-50"
             >
-              <div className="font-semibold">{c.nombre}</div>
+              <div className="font-semibold">{c.matricula || c.nombre}</div>
               <div className="text-sm text-gray-500">
-                {c.litros_actual.toFixed(2)} L / {c.capacidad_litros.toFixed(2)} L
+                {c.nombre} · {c.litros_actual.toFixed(2)} L / {c.capacidad_litros.toFixed(2)} L
               </div>
             </button>
           ))}

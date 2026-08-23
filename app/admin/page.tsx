@@ -278,14 +278,13 @@ function PanelVehiculos() {
             ) : (
               <div className="flex justify-between items-center">
                 <div>
-                  <p className="font-semibold">{c.nombre}</p>
+                  <p className="font-semibold">{c.matricula || c.nombre}</p>
                   <p className="text-sm text-gray-500">
-                    {c.litros_actual.toFixed(2)} L / {c.capacidad_litros.toFixed(2)} L
+                    {c.nombre} · {c.litros_actual.toFixed(2)} L / {c.capacidad_litros.toFixed(2)} L
                   </p>
-                  {(c.matricula || c.marca || c.km_por_litro) && (
+                  {(c.marca || c.km_por_litro) && (
                     <p className="text-xs text-gray-400">
-                      {c.marca ?? ""} {c.matricula ? `· ${c.matricula}` : ""}{" "}
-                      {c.km_por_litro ? `· ${c.km_por_litro} km/L` : ""}
+                      {c.marca ?? ""} {c.km_por_litro ? `· ${c.km_por_litro} km/L` : ""}
                     </p>
                   )}
                 </div>
@@ -378,9 +377,9 @@ function PanelOperaciones() {
             onClick={() => setCamionSeleccionado(c)}
             className="w-full border rounded-lg p-3 text-left hover:bg-gray-50"
           >
-            <p className="font-semibold">{c.nombre}</p>
+            <p className="font-semibold">{c.matricula || c.nombre}</p>
             <p className="text-sm text-gray-500">
-              {c.litros_actual.toFixed(2)} L / {c.capacidad_litros.toFixed(2)} L
+              {c.nombre} · {c.litros_actual.toFixed(2)} L / {c.capacidad_litros.toFixed(2)} L
             </p>
           </button>
         ))}
@@ -420,9 +419,9 @@ function DetalleCamion({ camion, onVolver }: { camion: Camion; onVolver: () => v
       <button onClick={onVolver} className="text-sm mb-3">
         ← Volver a camiones
       </button>
-      <h2 className="font-semibold mb-1">{camion.nombre}</h2>
+      <h2 className="font-semibold mb-1">{camion.matricula || camion.nombre}</h2>
       <p className="text-sm text-gray-500 mb-3">
-        {camion.litros_actual.toFixed(2)} L / {camion.capacidad_litros.toFixed(2)} L
+        {camion.nombre} · {camion.litros_actual.toFixed(2)} L / {camion.capacidad_litros.toFixed(2)} L
       </p>
 
       {cargando && <p className="text-gray-500">Cargando...</p>}
