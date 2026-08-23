@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Camion } from "@/lib/tipos";
+import type { Camion, Turno, Movimiento } from "@/lib/tipos";
 
 export default function AdminPage() {
   const [cargando, setCargando] = useState(true);
@@ -29,7 +29,7 @@ export default function AdminPage() {
     return <PantallaLogin onLogin={() => setAutenticado(true)} />;
   }
 
-  return <PanelCamiones />;
+  return <PanelAdmin />;
 }
 
 function PantallaLogin({ onLogin }: { onLogin: () => void }) {
@@ -87,7 +87,45 @@ function PantallaLogin({ onLogin }: { onLogin: () => void }) {
   );
 }
 
-function PanelCamiones() {
+function PanelAdmin() {
+  const [tab, setTab] = useState<"vehiculos" | "operaciones">("vehiculos");
+
+  async function cerrarSesion() {
+    await fetch("/api/admin/logout", { method: "POST" });
+    window.location.reload();
+  }
+
+  return (
+    <main className="min-h-screen p-4 max-w-md mx-auto">
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-bold">Panel del dueño</h1>
+        <button onClick={cerrarSesion} className="text-sm border rounded-lg px-3 py-1">
+          Salir
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 mb-4">
+        <button
+          onClick={() => setTab("vehiculos")}
+          className={`border rounded-lg p-2 text-sm font-semibold ${tab === "vehiculos" ? "bg-black text-white" : ""}`}
+        >
+          Vehículos
+        </button>
+        <button
+          onClick={() => setTab("operaciones")}
+          className={`border rounded-lg p-2 text-sm font-semibold ${tab === "operaciones" ? "bg-black text-white" : ""}`}
+        >
+          Operaciones diarias
+        </button>
+      </div>
+
+      {tab === "vehiculos" && <PanelVehiculos />}
+      {tab === "operaciones" && <PanelOperaciones />}
+    </main>
+  );
+}
+
+function PanelVehiculos() {
   const [camiones, setCamiones] = useState<Camion[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
@@ -115,11 +153,6 @@ function PanelCamiones() {
     const json = await res.json();
     setCamiones(json.camiones ?? []);
     setCargando(false);
-  }
-
-  async function cerrarSesion() {
-    await fetch("/api/admin/logout", { method: "POST" });
-    window.location.reload();
   }
 
   async function crearCamion() {
@@ -184,24 +217,10 @@ function PanelCamiones() {
   }
 
   return (
-    <main className="min-h-screen p-4 max-w-md mx-auto">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">Panel del dueño</h1>
-        <button onClick={cerrarSesion} className="text-sm border rounded-lg px-3 py-1">
-          Salir
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 gap-2 mb-4">
-        <button className="border rounded-lg p-2 text-sm font-semibold bg-black text-white">
-          Vehículos
-        </button>
-      </div>
-
+    <div>
       <h2 className="font-semibold mb-2">Vehículos</h2>
 
       {error && <p className="text-red-600 text-sm mb-2">{error}</p>}
-
       {cargando && <p className="text-gray-500">Cargando...</p>}
 
       <div className="space-y-2 mb-4">
@@ -321,6 +340,232 @@ function PanelCamiones() {
           Crear camión
         </button>
       </div>
-    </main>
+    </div>
+  );
+}
+
+function PanelOperaciones() {
+  const [camiones, setCamiones] = useState<Camion[]>([]);
+  const [cargando, setCargando] = useState(true);
+  const [camionSeleccionado, setCamionSeleccionado] = useState<Camion | null>(null);
+
+  useEffect(() => {
+    cargarCamiones();
+  }, []);
+
+  async function cargarCamiones() {
+    setCargando(true);
+    const res = await fetch("/api/admin/camiones");
+    const json = await res.json();
+    setCamiones(json.camiones ?? []);
+    setCargando(false);
+  }
+
+  if (camionSeleccionado) {
+    return (
+      <DetalleCamion camion={camionSeleccionado} onVolver={() => setCamionSeleccionado(null)} />
+    );
+  }
+
+  return (
+    <div>
+      <h2 className="font-semibold mb-2">Elegí un camión</h2>
+      {cargando && <p className="text-gray-500">Cargando...</p>}
+      <div className="space-y-2">
+        {camiones.map((c) => (
+          <button
+            key={c.id}
+            onClick={() => setCamionSeleccionado(c)}
+            className="w-full border rounded-lg p-3 text-left hover:bg-gray-50"
+          >
+            <p className="font-semibold">{c.nombre}</p>
+            <p className="text-sm text-gray-500">
+              {c.litros_actual.toFixed(2)} L / {c.capacidad_litros.toFixed(2)} L
+            </p>
+          </button>
+        ))}
+        {!cargando && camiones.length === 0 && <p className="text-gray-500">No hay camiones cargados todavía.</p>}
+      </div>
+    </div>
+  );
+}
+
+function DetalleCamion({ camion, onVolver }: { camion: Camion; onVolver: () => void }) {
+  const [turnos, setTurnos] = useState<Turno[]>([]);
+  const [cargando, setCargando] = useState(true);
+  const [turnoSeleccionado, setTurnoSeleccionado] = useState<Turno | null>(null);
+
+  useEffect(() => {
+    cargarTurnos();
+  }, []);
+
+  async function cargarTurnos() {
+    setCargando(true);
+    const res = await fetch(`/api/admin/turnos?camion_id=${camion.id}`);
+    const json = await res.json();
+    setTurnos(json.turnos ?? []);
+    setCargando(false);
+  }
+
+  if (turnoSeleccionado) {
+    return <DetalleTurno turno={turnoSeleccionado} onVolver={() => setTurnoSeleccionado(null)} />;
+  }
+
+  const hoy = new Date().toISOString().slice(0, 10);
+  const turnoHoy = turnos.find((t) => t.fecha === hoy);
+  const historial = turnos.filter((t) => t.fecha !== hoy);
+
+  return (
+    <div>
+      <button onClick={onVolver} className="text-sm mb-3">
+        ← Volver a camiones
+      </button>
+      <h2 className="font-semibold mb-1">{camion.nombre}</h2>
+      <p className="text-sm text-gray-500 mb-3">
+        {camion.litros_actual.toFixed(2)} L / {camion.capacidad_litros.toFixed(2)} L
+      </p>
+
+      {cargando && <p className="text-gray-500">Cargando...</p>}
+
+      {turnoHoy && (
+        <div className="mb-4">
+          <h3 className="font-semibold text-sm mb-1">Hoy — en vivo</h3>
+          <button
+            onClick={() => setTurnoSeleccionado(turnoHoy)}
+            className="w-full border rounded-lg p-3 text-left hover:bg-gray-50"
+          >
+            <p className="font-semibold">{turnoHoy.chofer_nombre}</p>
+            <p className="text-sm text-gray-500">
+              {turnoHoy.estado === "abierto" ? "🟢 Turno abierto" : "✅ Cerrado"}
+            </p>
+          </button>
+        </div>
+      )}
+
+      {!cargando && !turnoHoy && <p className="text-gray-500 mb-4">Sin turno abierto hoy.</p>}
+
+      <h3 className="font-semibold text-sm mb-1">Historial</h3>
+      <div className="space-y-2">
+        {historial.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTurnoSeleccionado(t)}
+            className="w-full border rounded-lg p-3 text-left hover:bg-gray-50"
+          >
+            <p className="font-semibold">{t.fecha}</p>
+            <p className="text-sm text-gray-500">
+              {t.chofer_nombre} · {t.estado === "cerrado" ? `Remanente: ${t.remanente?.toFixed(2)}` : "Abierto"}
+            </p>
+          </button>
+        ))}
+        {!cargando && historial.length === 0 && <p className="text-gray-500">Sin historial todavía.</p>}
+      </div>
+    </div>
+  );
+}
+
+function DetalleTurno({ turno, onVolver }: { turno: Turno; onVolver: () => void }) {
+  const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
+  const [cargando, setCargando] = useState(true);
+
+  useEffect(() => {
+    cargarDetalle();
+  }, []);
+
+  async function cargarDetalle() {
+    setCargando(true);
+    const res = await fetch(`/api/admin/turnos/${turno.id}`);
+    const json = await res.json();
+    setMovimientos(json.movimientos ?? []);
+    setCargando(false);
+  }
+
+  const ventas = movimientos.filter((m) => m.tipo === "venta");
+  const compras = movimientos.filter((m) => m.tipo === "compra_agua" || m.tipo === "compra_gasoleo");
+  const gastos = movimientos.filter((m) => m.tipo === "gasto");
+  const alertas = movimientos.filter((m) => m.tipo === "alerta_sobrante");
+
+  const ventasEfectivo = ventas.reduce((acc, m) => acc + (m.efectivo ?? 0), 0);
+  const ventasTotales = ventas.reduce((acc, m) => acc + (m.efectivo ?? 0) + (m.transferencia ?? 0) + (m.credito ?? 0), 0);
+  const totalCompras = compras.reduce((acc, m) => acc + (m.monto ?? 0), 0);
+  const totalGastos = gastos.reduce((acc, m) => acc + (m.monto ?? 0), 0);
+  const efectivoDisponible = turno.saldo_inicial + turno.fondo_dueno + ventasEfectivo - totalCompras - totalGastos;
+
+  return (
+    <div>
+      <button onClick={onVolver} className="text-sm mb-3">
+        ← Volver
+      </button>
+      <h2 className="font-semibold mb-1">
+        {turno.fecha} · {turno.chofer_nombre}
+      </h2>
+      <p className="text-sm text-gray-500 mb-3">{turno.estado === "abierto" ? "🟢 Abierto" : "✅ Cerrado"}</p>
+
+      {cargando && <p className="text-gray-500">Cargando...</p>}
+
+      <div className="space-y-1 mb-3">
+        <Fila label="Saldo inicial" valor={turno.saldo_inicial} />
+        <Fila label="Fondo añadido" valor={turno.fondo_dueno} />
+        <Fila label="Ventas en efectivo" valor={ventasEfectivo} />
+        <Fila label="Ventas totales" valor={ventasTotales} />
+        <Fila label="Compras" valor={totalCompras} />
+        <Fila label="Gastos" valor={totalGastos} />
+        <Fila label="Efectivo disponible" valor={efectivoDisponible} negrita />
+      </div>
+
+      {turno.estado === "cerrado" && (
+        <div className="border rounded-lg p-3 mb-3 bg-green-50">
+          <p className="font-semibold">Liquidación</p>
+          <p className="text-sm">Entregado: {turno.efectivo_entregado?.toFixed(2)}</p>
+          <p className="text-sm">Remanente: {turno.remanente?.toFixed(2)}</p>
+          {turno.desglose_efectivo && (
+            <div className="text-xs text-gray-600 mt-1">
+              {Object.entries(turno.desglose_efectivo)
+                .filter(([, cant]) => cant > 0)
+                .map(([denom, cant]) => (
+                  <p key={denom}>
+                    {cant} × {denom} = {(Number(denom) * cant).toFixed(2)}
+                  </p>
+                ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {alertas.length > 0 && (
+        <div className="border border-amber-400 bg-amber-50 rounded-lg p-3 mb-3">
+          <p className="font-semibold text-amber-800 text-sm">⚠️ Alertas de sobrante</p>
+          {alertas.map((a) => (
+            <p key={a.id} className="text-xs text-amber-800">
+              {a.litros?.toFixed(2)} L · ≈ {a.monto?.toFixed(2)}
+            </p>
+          ))}
+        </div>
+      )}
+
+      <h3 className="font-semibold text-sm mb-1">Movimientos</h3>
+      <div className="space-y-1">
+        {movimientos
+          .filter((m) => m.tipo !== "alerta_sobrante")
+          .map((m) => (
+            <div key={m.id} className="text-sm border-b pb-1 flex justify-between">
+              <span>
+                {m.categoria ?? m.tipo} {m.litros ? `· ${m.litros}L` : ""} {m.cliente_nota ? `· ${m.cliente_nota}` : ""}
+              </span>
+              <span>{(m.monto ?? 0).toFixed(2)}</span>
+            </div>
+          ))}
+        {!cargando && movimientos.length === 0 && <p className="text-gray-500">Sin movimientos.</p>}
+      </div>
+    </div>
+  );
+}
+
+function Fila({ label, valor, negrita }: { label: string; valor: number; negrita?: boolean }) {
+  return (
+    <div className={`flex justify-between border-b pb-1 ${negrita ? "font-bold" : ""}`}>
+      <span>{label}</span>
+      <span>{valor.toFixed(2)}</span>
+    </div>
   );
 }
