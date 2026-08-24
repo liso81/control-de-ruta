@@ -13,6 +13,8 @@ import type {
   TipoDocumento,
   AlertaDocumento,
   AlertaMantenimientoReporte,
+  CuentaPorCobrar,
+  AlertaCuentaPorCobrar,
 } from "@/lib/tipos";
 
 export default function AdminPage() {
@@ -100,9 +102,9 @@ function PantallaLogin({ onLogin }: { onLogin: () => void }) {
 }
 
 function PanelAdmin() {
-  const [tab, setTab] = useState<"reportes" | "vehiculos" | "operaciones" | "mantenimientos" | "inventario">(
-    "reportes"
-  );
+  const [tab, setTab] = useState<
+    "reportes" | "vehiculos" | "operaciones" | "mantenimientos" | "inventario" | "cxc"
+  >("reportes");
 
   async function cerrarSesion() {
     await fetch("/api/admin/logout", { method: "POST" });
@@ -115,6 +117,7 @@ function PanelAdmin() {
     { id: "operaciones", label: "Operac." },
     { id: "mantenimientos", label: "Mantenim." },
     { id: "inventario", label: "Invent." },
+    { id: "cxc", label: "Cuentas x Cobrar" },
   ];
 
   return (
@@ -126,12 +129,12 @@ function PanelAdmin() {
         </button>
       </div>
 
-      <div className="grid grid-cols-5 gap-1 mb-4">
+      <div className="flex gap-1 mb-4 overflow-x-auto pb-1">
         {tabs.map((t) => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`border rounded-lg p-2 text-xs font-semibold ${tab === t.id ? "bg-black text-white" : ""}`}
+            className={`border rounded-lg p-2 text-xs font-semibold whitespace-nowrap flex-shrink-0 ${tab === t.id ? "bg-black text-white" : ""}`}
           >
             {t.label}
           </button>
@@ -143,6 +146,7 @@ function PanelAdmin() {
       {tab === "operaciones" && <PanelOperaciones />}
       {tab === "mantenimientos" && <PanelMantenimientos />}
       {tab === "inventario" && <PanelInventario />}
+      {tab === "cxc" && <PanelCuentasPorCobrar />}
     </main>
   );
 }
@@ -1439,6 +1443,7 @@ const LABELS_DOCUMENTO: Record<TipoDocumento, string> = {
 function PanelReportes() {
   const [alertasMantenimiento, setAlertasMantenimiento] = useState<AlertaMantenimientoReporte[]>([]);
   const [alertasDocumentos, setAlertasDocumentos] = useState<AlertaDocumento[]>([]);
+  const [alertasCxC, setAlertasCxC] = useState<AlertaCuentaPorCobrar[]>([]);
   const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
@@ -1451,13 +1456,14 @@ function PanelReportes() {
     const json = await res.json();
     setAlertasMantenimiento(json.alertasMantenimiento ?? []);
     setAlertasDocumentos(json.alertasDocumentos ?? []);
+    setAlertasCxC(json.alertasCuentasPorCobrar ?? []);
     setCargando(false);
   }
 
   const colores: Record<string, string> = { proximo: "text-amber-700 bg-amber-50 border-amber-400", vencido: "text-red-700 bg-red-50 border-red-400" };
   const iconos: Record<string, string> = { proximo: "⚡", vencido: "⚠️" };
 
-  const sinAlertas = alertasMantenimiento.length === 0 && alertasDocumentos.length === 0;
+  const sinAlertas = alertasMantenimiento.length === 0 && alertasDocumentos.length === 0 && alertasCxC.length === 0;
 
   return (
     <div>
@@ -1468,6 +1474,25 @@ function PanelReportes() {
         <p className="text-green-700 bg-green-50 border border-green-400 rounded-lg p-3">
           ✅ Todo al día. No hay alertas de mantenimiento ni documentos por vencer.
         </p>
+      )}
+
+      {alertasCxC.length > 0 && (
+        <div className="mb-4">
+          <h3 className="font-semibold text-sm mb-2">Cuentas por cobrar envejecidas</h3>
+          <div className="space-y-2">
+            {alertasCxC.map((a) => (
+              <div key={a.id} className={`border rounded-lg p-3 ${colores[a.estado]}`}>
+                <p className="font-semibold text-sm">
+                  {iconos[a.estado]} {a.cliente_nombre} {a.cliente_telefono ? `· ${a.cliente_telefono}` : ""}
+                </p>
+                <p className="text-sm">
+                  Monto: {a.monto.toFixed(2)} · {a.dias_antiguedad} días desde la venta
+                  {a.camion_matricula ? ` · ${a.camion_matricula}` : a.camion_nombre ? ` · ${a.camion_nombre}` : ""}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       {alertasDocumentos.length > 0 && (
@@ -1510,6 +1535,106 @@ function PanelReportes() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/* ================= CUENTAS POR COBRAR ================= */
+
+function PanelCuentasPorCobrar() {
+  const [cuentas, setCuentas] = useState<CuentaPorCobrar[]>([]);
+  const [cargando, setCargando] = useState(true);
+  const [mostrarCobradas, setMostrarCobradas] = useState(false);
+
+  useEffect(() => {
+    cargarCuentas();
+  }, [mostrarCobradas]);
+
+  async function cargarCuentas() {
+    setCargando(true);
+    const estado = mostrarCobradas ? "todas" : "pendiente";
+    const res = await fetch(`/api/admin/cuentas-por-cobrar?estado=${estado}`);
+    const json = await res.json();
+    setCuentas(json.cuentas ?? []);
+    setCargando(false);
+  }
+
+  async function marcarCobrado(id: string) {
+    await fetch(`/api/admin/cuentas-por-cobrar/${id}/cobrar`, { method: "POST" });
+    await cargarCuentas();
+  }
+
+  function diasAntiguedad(fechaVenta: string) {
+    const hoy = new Date();
+    const venta = new Date(fechaVenta);
+    return Math.round((hoy.getTime() - venta.getTime()) / (1000 * 60 * 60 * 24));
+  }
+
+  function colorPorAntiguedad(dias: number) {
+    if (dias >= 30) return "border-red-400 bg-red-50";
+    if (dias >= 15) return "border-amber-400 bg-amber-50";
+    return "";
+  }
+
+  const totalPendiente = cuentas
+    .filter((c) => c.estado === "pendiente")
+    .reduce((acc, c) => acc + c.monto, 0);
+
+  return (
+    <div>
+      <h2 className="font-semibold mb-1">Cuentas por cobrar</h2>
+      <p className="text-sm text-gray-500 mb-3">
+        Total pendiente: <strong>{totalPendiente.toFixed(2)}</strong>
+      </p>
+
+      <button
+        onClick={() => setMostrarCobradas(!mostrarCobradas)}
+        className="text-sm border rounded-lg px-3 py-1 mb-3"
+      >
+        {mostrarCobradas ? "Ver solo pendientes" : "Ver también cobradas"}
+      </button>
+
+      {cargando && <p className="text-gray-500">Cargando...</p>}
+
+      <div className="space-y-2">
+        {cuentas.map((c) => {
+          const dias = diasAntiguedad(c.fecha_venta);
+          return (
+            <div
+              key={c.id}
+              className={`border rounded-lg p-3 ${c.estado === "pendiente" ? colorPorAntiguedad(dias) : "opacity-60"}`}
+            >
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="font-semibold text-sm">{c.cliente_nombre}</p>
+                  {c.cliente_telefono && <p className="text-xs text-gray-500">{c.cliente_telefono}</p>}
+                  <p className="text-xs text-gray-500">
+                    {c.camion?.matricula || c.camion?.nombre || ""} · Venta: {c.fecha_venta}
+                  </p>
+                  {c.estado === "pendiente" && (
+                    <p className="text-xs text-gray-500">{dias} días de antigüedad</p>
+                  )}
+                  {c.estado === "cobrado" && (
+                    <p className="text-xs text-green-700">✅ Cobrado el {c.fecha_cobro}</p>
+                  )}
+                </div>
+                <div className="text-right">
+                  <p className="font-bold">{c.monto.toFixed(2)}</p>
+                  {c.estado === "pendiente" && (
+                    <button
+                      onClick={() => marcarCobrado(c.id)}
+                      className="text-xs border rounded px-2 py-1 mt-1"
+                    >
+                      Marcar cobrado
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        {!cargando && cuentas.length === 0 && <p className="text-gray-500">Sin cuentas por cobrar.</p>}
+      </div>
     </div>
   );
 }

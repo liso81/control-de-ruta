@@ -50,7 +50,6 @@ export async function POST(request: Request) {
     );
   }
 
-  // Si es un egreso (compra o gasto), verificamos que no supere el efectivo disponible.
   if (tipo === "compra_agua" || tipo === "compra_gasoleo" || tipo === "gasto") {
     const { data: turno } = await supabaseAdmin
       .from("turnos")
@@ -127,6 +126,20 @@ export async function POST(request: Request) {
     if (errorResta) {
       return NextResponse.json({ error: errorResta.message }, { status: 500 });
     }
+  }
+
+  // Si la venta tiene un componente a crédito, generamos la cuenta por
+  // cobrar correspondiente, que va a quedar "pendiente" hasta que el dueño
+  // registre el cobro desde el panel.
+  if (tipo === "venta" && (credito ?? 0) > 0) {
+    await supabaseAdmin.from("cuentas_por_cobrar").insert({
+      movimiento_id: movimiento.id,
+      camion_id: camion_id ?? null,
+      cliente_nombre: cliente_nota,
+      cliente_telefono: cliente_telefono ?? null,
+      monto: credito,
+      estado: "pendiente",
+    });
   }
 
   return NextResponse.json({ movimiento });

@@ -117,3 +117,28 @@ export interface AlertaMantenimientoReporte extends AlertaMantenimiento {
   camion_nombre: string;
   camion_matricula: string | null;
 }
+
+export interface CuentaPorCobrar {
+  id: string;
+  movimiento_id: string | null;
+  camion_id: string | null;
+  cliente_nombre: string;
+  cliente_telefono: string | null;
+  monto: number;
+  fecha_venta: string;
+  fecha_cobro: string | null;
+  estado: "pendiente" | "cobrado";
+  camion?: { nombre: string; matricula: string | null } | null;
+}
+
+export interface AlertaCuentaPorCobrar {
+  id: string;
+  cliente_nombre: string;
+  cliente_telefono: string | null;
+  monto: number;
+  fecha_venta: string;
+  dias_antiguedad: number;
+  camion_nombre: string | null;
+  camion_matricula: string | null;
+  estado: "proximo" | "vencido";
+}

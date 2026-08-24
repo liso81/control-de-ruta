@@ -8,6 +8,8 @@ export const dynamic = "force-dynamic";
 
 const UMBRAL_PROXIMO_KM = 500;
 const UMBRAL_PROXIMO_DIAS = 30;
+const UMBRAL_CXC_PROXIMO_DIAS = 15;
+const UMBRAL_CXC_VENCIDO_DIAS = 30;
 
 async function calcularKmActual(camion: {
   id: string;
@@ -50,7 +52,6 @@ export async function GET() {
   const alertasDocumentos = [];
 
   for (const camion of camiones ?? []) {
-    // --- Alertas de mantenimiento preventivo ---
     const kmActual = await calcularKmActual(camion);
 
     const { data: intervalos } = await supabaseAdmin
@@ -92,7 +93,6 @@ export async function GET() {
       }
     }
 
-    // --- Alertas de documentos (seguro, inspección, carta de alquiler) ---
     const { data: documentos } = await supabaseAdmin
       .from("documentos_vehiculo")
       .select("*")
@@ -130,5 +130,35 @@ export async function GET() {
   alertasMantenimiento.sort((a, b) => orden[a.estado] - orden[b.estado]);
   alertasDocumentos.sort((a, b) => orden[a.estado] - orden[b.estado]);
 
-  return NextResponse.json({ alertasMantenimiento, alertasDocumentos });
+  // --- Cuentas por cobrar envejecidas ---
+  const { data: cuentasPendientes } = await supabaseAdmin
+    .from("cuentas_por_cobrar")
+    .select("*, camion:camiones(nombre, matricula)")
+    .eq("estado", "pendiente");
+
+  const hoy = new Date();
+  const alertasCuentasPorCobrar = [];
+
+  for (const cuenta of cuentasPendientes ?? []) {
+    const fechaVenta = new Date(cuenta.fecha_venta);
+    const diasAntiguedad = Math.round((hoy.getTime() - fechaVenta.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (diasAntiguedad >= UMBRAL_CXC_PROXIMO_DIAS) {
+      alertasCuentasPorCobrar.push({
+        id: cuenta.id,
+        cliente_nombre: cuenta.cliente_nombre,
+        cliente_telefono: cuenta.cliente_telefono,
+        monto: cuenta.monto,
+        fecha_venta: cuenta.fecha_venta,
+        dias_antiguedad: diasAntiguedad,
+        camion_nombre: cuenta.camion?.nombre ?? null,
+        camion_matricula: cuenta.camion?.matricula ?? null,
+        estado: diasAntiguedad >= UMBRAL_CXC_VENCIDO_DIAS ? "vencido" : "proximo",
+      });
+    }
+  }
+
+  alertasCuentasPorCobrar.sort((a, b) => b.dias_antiguedad - a.dias_antiguedad);
+
+  return NextResponse.json({ alertasMantenimiento, alertasDocumentos, alertasCuentasPorCobrar });
 }
