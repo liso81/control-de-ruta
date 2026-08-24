@@ -1,7 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Camion, Turno, Movimiento, Mantenimiento } from "@/lib/tipos";
+import type {
+  Camion,
+  Turno,
+  Movimiento,
+  Producto,
+  IntervaloMantenimiento,
+  Mantenimiento,
+  AlertaMantenimiento,
+} from "@/lib/tipos";
 
 export default function AdminPage() {
   const [cargando, setCargando] = useState(true);
@@ -88,12 +96,19 @@ function PantallaLogin({ onLogin }: { onLogin: () => void }) {
 }
 
 function PanelAdmin() {
-  const [tab, setTab] = useState<"vehiculos" | "operaciones" | "mantenimientos">("vehiculos");
+  const [tab, setTab] = useState<"vehiculos" | "operaciones" | "mantenimientos" | "inventario">("vehiculos");
 
   async function cerrarSesion() {
     await fetch("/api/admin/logout", { method: "POST" });
     window.location.reload();
   }
+
+  const tabs: { id: typeof tab; label: string }[] = [
+    { id: "vehiculos", label: "Vehículos" },
+    { id: "operaciones", label: "Operaciones" },
+    { id: "mantenimientos", label: "Mantenim." },
+    { id: "inventario", label: "Inventario" },
+  ];
 
   return (
     <main className="min-h-screen p-4 max-w-md mx-auto">
@@ -104,33 +119,27 @@ function PanelAdmin() {
         </button>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 mb-4">
-        <button
-          onClick={() => setTab("vehiculos")}
-          className={`border rounded-lg p-2 text-xs font-semibold ${tab === "vehiculos" ? "bg-black text-white" : ""}`}
-        >
-          Vehículos
-        </button>
-        <button
-          onClick={() => setTab("operaciones")}
-          className={`border rounded-lg p-2 text-xs font-semibold ${tab === "operaciones" ? "bg-black text-white" : ""}`}
-        >
-          Operaciones
-        </button>
-        <button
-          onClick={() => setTab("mantenimientos")}
-          className={`border rounded-lg p-2 text-xs font-semibold ${tab === "mantenimientos" ? "bg-black text-white" : ""}`}
-        >
-          Mantenimientos
-        </button>
+      <div className="grid grid-cols-4 gap-1 mb-4">
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={`border rounded-lg p-2 text-xs font-semibold ${tab === t.id ? "bg-black text-white" : ""}`}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
       {tab === "vehiculos" && <PanelVehiculos />}
       {tab === "operaciones" && <PanelOperaciones />}
       {tab === "mantenimientos" && <PanelMantenimientos />}
+      {tab === "inventario" && <PanelInventario />}
     </main>
   );
 }
+
+/* ================= VEHÍCULOS ================= */
 
 function PanelVehiculos() {
   const [camiones, setCamiones] = useState<Camion[]>([]);
@@ -390,6 +399,8 @@ function PanelVehiculos() {
   );
 }
 
+/* ================= OPERACIONES DIARIAS ================= */
+
 function PanelOperaciones() {
   const [camiones, setCamiones] = useState<Camion[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -408,9 +419,7 @@ function PanelOperaciones() {
   }
 
   if (camionSeleccionado) {
-    return (
-      <DetalleCamion camion={camionSeleccionado} onVolver={() => setCamionSeleccionado(null)} />
-    );
+    return <DetalleCamion camion={camionSeleccionado} onVolver={() => setCamionSeleccionado(null)} />;
   }
 
   return (
@@ -616,6 +625,210 @@ function Fila({ label, valor, negrita }: { label: string; valor: number; negrita
   );
 }
 
+/* ================= INVENTARIO ================= */
+
+function PanelInventario() {
+  const [productos, setProductos] = useState<Producto[]>([]);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState("");
+
+  const [nombreNuevo, setNombreNuevo] = useState("");
+  const [unidadNueva, setUnidadNueva] = useState("");
+  const [precioNuevo, setPrecioNuevo] = useState("");
+  const [stockNuevo, setStockNuevo] = useState("");
+
+  const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [nombreEdit, setNombreEdit] = useState("");
+  const [unidadEdit, setUnidadEdit] = useState("");
+  const [precioEdit, setPrecioEdit] = useState("");
+  const [stockEdit, setStockEdit] = useState("");
+
+  useEffect(() => {
+    cargarProductos();
+  }, []);
+
+  async function cargarProductos() {
+    setCargando(true);
+    const res = await fetch("/api/admin/productos");
+    const json = await res.json();
+    setProductos(json.productos ?? []);
+    setCargando(false);
+  }
+
+  async function crearProducto() {
+    setError("");
+    if (!nombreNuevo.trim() || !precioNuevo) {
+      setError("Completá al menos nombre y precio");
+      return;
+    }
+    const res = await fetch("/api/admin/productos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        nombre: nombreNuevo.trim(),
+        unidad: unidadNueva.trim() || null,
+        precio_unitario: parseFloat(precioNuevo),
+        stock_actual: stockNuevo ? parseFloat(stockNuevo) : 0,
+      }),
+    });
+    const json = await res.json();
+    if (json.error) {
+      setError(json.error);
+      return;
+    }
+    setNombreNuevo("");
+    setUnidadNueva("");
+    setPrecioNuevo("");
+    setStockNuevo("");
+    await cargarProductos();
+  }
+
+  function empezarEdicion(p: Producto) {
+    setEditandoId(p.id);
+    setNombreEdit(p.nombre);
+    setUnidadEdit(p.unidad ?? "");
+    setPrecioEdit(String(p.precio_unitario));
+    setStockEdit(String(p.stock_actual));
+  }
+
+  async function guardarEdicion(id: string) {
+    setError("");
+    const res = await fetch(`/api/admin/productos/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        nombre: nombreEdit.trim(),
+        unidad: unidadEdit.trim() || null,
+        precio_unitario: parseFloat(precioEdit),
+        stock_actual: parseFloat(stockEdit),
+      }),
+    });
+    const json = await res.json();
+    if (json.error) {
+      setError(json.error);
+      return;
+    }
+    setEditandoId(null);
+    await cargarProductos();
+  }
+
+  return (
+    <div>
+      <h2 className="font-semibold mb-2">Inventario (almacén general)</h2>
+      {error && <p className="text-red-600 text-sm mb-2">{error}</p>}
+      {cargando && <p className="text-gray-500">Cargando...</p>}
+
+      <div className="space-y-2 mb-4">
+        {productos.map((p) => (
+          <div key={p.id} className="border rounded-lg p-3">
+            {editandoId === p.id ? (
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  value={nombreEdit}
+                  onChange={(e) => setNombreEdit(e.target.value)}
+                  placeholder="Nombre"
+                  className="border rounded-lg p-2 w-full"
+                />
+                <input
+                  type="text"
+                  value={unidadEdit}
+                  onChange={(e) => setUnidadEdit(e.target.value)}
+                  placeholder="Unidad (litro, unidad, kg...)"
+                  className="border rounded-lg p-2 w-full"
+                />
+                <input
+                  type="number"
+                  value={precioEdit}
+                  onChange={(e) => setPrecioEdit(e.target.value)}
+                  placeholder="Precio unitario"
+                  className="border rounded-lg p-2 w-full"
+                />
+                <input
+                  type="number"
+                  value={stockEdit}
+                  onChange={(e) => setStockEdit(e.target.value)}
+                  placeholder="Stock disponible"
+                  className="border rounded-lg p-2 w-full"
+                />
+                <div className="flex gap-2">
+                  <button onClick={() => guardarEdicion(p.id)} className="border rounded-lg px-3 py-1 font-semibold flex-1">
+                    Guardar
+                  </button>
+                  <button onClick={() => setEditandoId(null)} className="border rounded-lg px-3 py-1 flex-1">
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="font-semibold">{p.nombre}</p>
+                  <p className="text-sm text-gray-500">
+                    Precio: {p.precio_unitario.toFixed(2)} {p.unidad ? `/ ${p.unidad}` : ""} · Stock: {p.stock_actual}
+                  </p>
+                </div>
+                <button onClick={() => empezarEdicion(p)} className="text-xs border rounded px-2 py-1">
+                  Editar
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+        {!cargando && productos.length === 0 && <p className="text-gray-500">Sin productos cargados todavía.</p>}
+      </div>
+
+      <div className="border-t pt-4">
+        <h2 className="font-semibold mb-2">Agregar producto</h2>
+        <input
+          type="text"
+          value={nombreNuevo}
+          onChange={(e) => setNombreNuevo(e.target.value)}
+          placeholder="Nombre (ej: Aceite 15W40)"
+          className="border rounded-lg p-2 w-full mb-2"
+        />
+        <input
+          type="text"
+          value={unidadNueva}
+          onChange={(e) => setUnidadNueva(e.target.value)}
+          placeholder="Unidad (litro, unidad, kg...)"
+          className="border rounded-lg p-2 w-full mb-2"
+        />
+        <input
+          type="number"
+          value={precioNuevo}
+          onChange={(e) => setPrecioNuevo(e.target.value)}
+          placeholder="Precio unitario"
+          className="border rounded-lg p-2 w-full mb-2"
+        />
+        <input
+          type="number"
+          value={stockNuevo}
+          onChange={(e) => setStockNuevo(e.target.value)}
+          placeholder="Stock inicial"
+          className="border rounded-lg p-2 w-full mb-2"
+        />
+        <button onClick={crearProducto} className="border rounded-lg p-2 w-full font-semibold">
+          Agregar producto
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ================= MANTENIMIENTOS ================= */
+
+const TIPOS_MANTENIMIENTO = [
+  "Cambio de aceite",
+  "Frenos",
+  "Neumáticos",
+  "Batería",
+  "Filtros",
+  "Revisión general",
+  "Correctivo / reparación",
+  "Otro",
+];
+
 function PanelMantenimientos() {
   const [camiones, setCamiones] = useState<Camion[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -634,7 +847,7 @@ function PanelMantenimientos() {
   }
 
   if (camionSeleccionado) {
-    return <DetalleMantenimiento camion={camionSeleccionado} onVolver={() => setCamionSeleccionado(null)} />;
+    return <DetalleMantenimientoCamion camion={camionSeleccionado} onVolver={() => setCamionSeleccionado(null)} />;
   }
 
   return (
@@ -658,30 +871,31 @@ function PanelMantenimientos() {
   );
 }
 
-const TIPOS_MANTENIMIENTO = [
-  "Cambio de aceite",
-  "Frenos",
-  "Neumáticos",
-  "Batería",
-  "Filtros",
-  "Revisión general",
-  "Correctivo / reparación",
-  "Otro",
-];
-
-function DetalleMantenimiento({ camion, onVolver }: { camion: Camion; onVolver: () => void }) {
+function DetalleMantenimientoCamion({ camion, onVolver }: { camion: Camion; onVolver: () => void }) {
   const [kmActual, setKmActual] = useState<number | null>(null);
   const [faltaPrecio, setFaltaPrecio] = useState(false);
+  const [alertas, setAlertas] = useState<AlertaMantenimiento[]>([]);
+  const [intervalos, setIntervalos] = useState<IntervaloMantenimiento[]>([]);
   const [mantenimientos, setMantenimientos] = useState<Mantenimiento[]>([]);
+  const [productosDisponibles, setProductosDisponibles] = useState<Producto[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
+  const [mostrarIntervalos, setMostrarIntervalos] = useState(false);
+  const [mantenimientoDetalle, setMantenimientoDetalle] = useState<Mantenimiento | null>(null);
 
+  // Formulario de registro
   const [tipo, setTipo] = useState(TIPOS_MANTENIMIENTO[0]);
   const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
   const [km, setKm] = useState("");
-  const [costo, setCosto] = useState("");
-  const [taller, setTaller] = useState("");
+  const [lineasProductos, setLineasProductos] = useState<{ producto_id: string; cantidad: string }[]>([]);
+  const [costoTercero, setCostoTercero] = useState("");
+  const [proveedorTercero, setProveedorTercero] = useState("");
+  const [descripcionTercero, setDescripcionTercero] = useState("");
   const [notas, setNotas] = useState("");
+
+  // Formulario de intervalos
+  const [tipoIntervalo, setTipoIntervalo] = useState(TIPOS_MANTENIMIENTO[0]);
+  const [valorIntervalo, setValorIntervalo] = useState("");
 
   useEffect(() => {
     cargarTodo();
@@ -689,17 +903,53 @@ function DetalleMantenimiento({ camion, onVolver }: { camion: Camion; onVolver: 
 
   async function cargarTodo() {
     setCargando(true);
-    const [resKm, resMant] = await Promise.all([
-      fetch(`/api/admin/camiones/${camion.id}/km`),
-      fetch(`/api/admin/mantenimientos?camion_id=${camion.id}`),
-    ]);
+    const resKm = await fetch(`/api/admin/camiones/${camion.id}/km`);
     const jsonKm = await resKm.json();
-    const jsonMant = await resMant.json();
     setKmActual(jsonKm.km_actual ?? null);
     setFaltaPrecio(jsonKm.falta_precio_configurado ?? false);
-    setMantenimientos(jsonMant.mantenimientos ?? []);
     if (jsonKm.km_actual !== undefined) setKm(String(Math.round(jsonKm.km_actual)));
+
+    const [resAlertas, resIntervalos, resMant, resProductos] = await Promise.all([
+      fetch(`/api/admin/alertas?camion_id=${camion.id}&km_actual=${jsonKm.km_actual ?? 0}`),
+      fetch(`/api/admin/intervalos?camion_id=${camion.id}`),
+      fetch(`/api/admin/mantenimientos?camion_id=${camion.id}`),
+      fetch(`/api/admin/productos`),
+    ]);
+    const jsonAlertas = await resAlertas.json();
+    const jsonIntervalos = await resIntervalos.json();
+    const jsonMant = await resMant.json();
+    const jsonProductos = await resProductos.json();
+
+    setAlertas(jsonAlertas.alertas ?? []);
+    setIntervalos(jsonIntervalos.intervalos ?? []);
+    setMantenimientos(jsonMant.mantenimientos ?? []);
+    setProductosDisponibles(jsonProductos.productos ?? []);
     setCargando(false);
+  }
+
+  async function guardarIntervalo() {
+    if (!valorIntervalo) return;
+    await fetch("/api/admin/intervalos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ camion_id: camion.id, tipo: tipoIntervalo, intervalo_km: parseFloat(valorIntervalo) }),
+    });
+    setValorIntervalo("");
+    await cargarTodo();
+  }
+
+  function agregarLineaProducto() {
+    setLineasProductos([...lineasProductos, { producto_id: "", cantidad: "" }]);
+  }
+
+  function quitarLineaProducto(index: number) {
+    setLineasProductos(lineasProductos.filter((_, i) => i !== index));
+  }
+
+  function actualizarLinea(index: number, campo: "producto_id" | "cantidad", valor: string) {
+    const copia = [...lineasProductos];
+    copia[index] = { ...copia[index], [campo]: valor };
+    setLineasProductos(copia);
   }
 
   async function registrarMantenimiento() {
@@ -708,6 +958,11 @@ function DetalleMantenimiento({ camion, onVolver }: { camion: Camion; onVolver: 
       setError("Completá al menos tipo y fecha");
       return;
     }
+
+    const productosValidos = lineasProductos
+      .filter((l) => l.producto_id && l.cantidad)
+      .map((l) => ({ producto_id: l.producto_id, cantidad: parseFloat(l.cantidad) }));
+
     const res = await fetch("/api/admin/mantenimientos", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -716,8 +971,10 @@ function DetalleMantenimiento({ camion, onVolver }: { camion: Camion; onVolver: 
         tipo,
         fecha,
         km: km ? parseFloat(km) : null,
-        costo: costo ? parseFloat(costo) : null,
-        taller: taller.trim() || null,
+        productos: productosValidos,
+        costo_servicio_tercero: costoTercero ? parseFloat(costoTercero) : 0,
+        proveedor_tercero: proveedorTercero.trim() || null,
+        descripcion_servicio_tercero: descripcionTercero.trim() || null,
         notas: notas.trim() || null,
       }),
     });
@@ -726,11 +983,20 @@ function DetalleMantenimiento({ camion, onVolver }: { camion: Camion; onVolver: 
       setError(json.error);
       return;
     }
-    setCosto("");
-    setTaller("");
+    setLineasProductos([]);
+    setCostoTercero("");
+    setProveedorTercero("");
+    setDescripcionTercero("");
     setNotas("");
     await cargarTodo();
   }
+
+  if (mantenimientoDetalle) {
+    return <ExpedienteMantenimiento mantenimiento={mantenimientoDetalle} onVolver={() => setMantenimientoDetalle(null)} />;
+  }
+
+  const colores = { ok: "text-green-700", proximo: "text-amber-700", vencido: "text-red-700" };
+  const iconos = { ok: "✅", proximo: "⚡", vencido: "⚠️" };
 
   return (
     <div>
@@ -739,7 +1005,7 @@ function DetalleMantenimiento({ camion, onVolver }: { camion: Camion; onVolver: 
       </button>
       <h2 className="font-semibold mb-1">{camion.matricula || camion.nombre}</h2>
       <p className="text-sm text-gray-500 mb-3">
-        {camion.nombre} · Km estimado actual:{" "}
+        {camion.nombre} · Km estimado:{" "}
         <strong>{kmActual !== null ? Math.round(kmActual).toLocaleString() : "—"} km</strong>
       </p>
 
@@ -747,10 +1013,78 @@ function DetalleMantenimiento({ camion, onVolver }: { camion: Camion; onVolver: 
 
       {faltaPrecio && (
         <p className="text-amber-700 text-sm bg-amber-50 border border-amber-400 rounded-lg p-2 mb-3">
-          ⚠️ Falta configurar el "Precio por litro de gasóleo" en Vehículos para poder estimar el km recorrido.
+          ⚠️ Falta configurar el "Precio por litro de gasóleo" en Vehículos para estimar el km.
         </p>
       )}
 
+      {/* Alertas */}
+      <div className="mb-4">
+        <h3 className="font-semibold text-sm mb-1">Alertas de mantenimiento preventivo</h3>
+        {alertas.length === 0 && (
+          <p className="text-gray-500 text-sm">Sin intervalos configurados todavía.</p>
+        )}
+        <div className="space-y-1">
+          {alertas.map((a) => (
+            <div key={a.tipo} className="border rounded-lg p-2 flex justify-between items-center">
+              <div>
+                <p className="text-sm font-semibold">{a.tipo}</p>
+                <p className={`text-xs ${colores[a.estado]}`}>
+                  {iconos[a.estado]}{" "}
+                  {a.estado === "vencido"
+                    ? `Vencido hace ${Math.abs(Math.round(a.km_faltantes)).toLocaleString()} km`
+                    : `Faltan ${Math.round(a.km_faltantes).toLocaleString()} km`}
+                </p>
+              </div>
+              <p className="text-xs text-gray-400">cada {a.intervalo_km.toLocaleString()} km</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Intervalos configurables */}
+      <div className="mb-4">
+        <button onClick={() => setMostrarIntervalos(!mostrarIntervalos)} className="text-sm border rounded-lg px-3 py-1">
+          {mostrarIntervalos ? "Ocultar" : "Configurar"} intervalos
+        </button>
+        {mostrarIntervalos && (
+          <div className="border rounded-lg p-3 mt-2 space-y-2">
+            <p className="text-xs text-gray-500">Tipo</p>
+            <select
+              value={tipoIntervalo}
+              onChange={(e) => setTipoIntervalo(e.target.value)}
+              className="border rounded-lg p-2 w-full"
+            >
+              {TIPOS_MANTENIMIENTO.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500">Cada cuántos km</p>
+            <input
+              type="number"
+              value={valorIntervalo}
+              onChange={(e) => setValorIntervalo(e.target.value)}
+              placeholder="Ej: 5000"
+              className="border rounded-lg p-2 w-full"
+            />
+            <button onClick={guardarIntervalo} className="border rounded-lg p-2 w-full font-semibold">
+              Guardar intervalo
+            </button>
+            {intervalos.length > 0 && (
+              <div className="pt-2 text-xs text-gray-500">
+                {intervalos.map((i) => (
+                  <p key={i.id}>
+                    {i.tipo}: cada {i.intervalo_km.toLocaleString()} km
+                  </p>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Registrar mantenimiento */}
       <div className="border rounded-lg p-3 mb-4 space-y-2">
         <p className="font-semibold text-sm">Registrar mantenimiento</p>
 
@@ -772,31 +1106,63 @@ function DetalleMantenimiento({ camion, onVolver }: { camion: Camion; onVolver: 
         />
 
         <p className="text-xs text-gray-500">Km (se sugiere el estimado, editable)</p>
-        <input
-          type="number"
-          value={km}
-          onChange={(e) => setKm(e.target.value)}
-          className="border rounded-lg p-2 w-full"
-        />
+        <input type="number" value={km} onChange={(e) => setKm(e.target.value)} className="border rounded-lg p-2 w-full" />
 
-        <p className="text-xs text-gray-500">Costo</p>
-        <input
-          type="number"
-          value={costo}
-          onChange={(e) => setCosto(e.target.value)}
-          placeholder="0.00"
-          className="border rounded-lg p-2 w-full"
-        />
+        <p className="text-xs text-gray-500 pt-2">Productos usados (del inventario)</p>
+        {lineasProductos.map((linea, i) => (
+          <div key={i} className="flex gap-2">
+            <select
+              value={linea.producto_id}
+              onChange={(e) => actualizarLinea(i, "producto_id", e.target.value)}
+              className="border rounded-lg p-2 flex-1"
+            >
+              <option value="">Elegir producto</option>
+              {productosDisponibles.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nombre} (stock: {p.stock_actual})
+                </option>
+              ))}
+            </select>
+            <input
+              type="number"
+              value={linea.cantidad}
+              onChange={(e) => actualizarLinea(i, "cantidad", e.target.value)}
+              placeholder="Cant."
+              className="border rounded-lg p-2 w-20"
+            />
+            <button onClick={() => quitarLineaProducto(i)} className="border rounded-lg px-2 text-sm">
+              ✕
+            </button>
+          </div>
+        ))}
+        <button onClick={agregarLineaProducto} className="text-sm border rounded-lg px-3 py-1">
+          + Agregar producto
+        </button>
 
-        <p className="text-xs text-gray-500">Taller / mecánico</p>
+        <p className="text-xs text-gray-500 pt-2">Servicio de tercero (opcional)</p>
         <input
           type="text"
-          value={taller}
-          onChange={(e) => setTaller(e.target.value)}
+          value={proveedorTercero}
+          onChange={(e) => setProveedorTercero(e.target.value)}
+          placeholder="Taller / mecánico"
+          className="border rounded-lg p-2 w-full"
+        />
+        <input
+          type="number"
+          value={costoTercero}
+          onChange={(e) => setCostoTercero(e.target.value)}
+          placeholder="Costo del servicio"
+          className="border rounded-lg p-2 w-full"
+        />
+        <input
+          type="text"
+          value={descripcionTercero}
+          onChange={(e) => setDescripcionTercero(e.target.value)}
+          placeholder="Descripción del servicio recibido"
           className="border rounded-lg p-2 w-full"
         />
 
-        <p className="text-xs text-gray-500">Notas</p>
+        <p className="text-xs text-gray-500 pt-2">Notas</p>
         <input
           type="text"
           value={notas}
@@ -811,24 +1177,98 @@ function DetalleMantenimiento({ camion, onVolver }: { camion: Camion; onVolver: 
         </button>
       </div>
 
-      <h3 className="font-semibold text-sm mb-1">Historial</h3>
+      {/* Historial / expediente técnico */}
+      <h3 className="font-semibold text-sm mb-1">Expediente técnico (historial)</h3>
       <div className="space-y-2">
         {mantenimientos.map((m) => (
-          <div key={m.id} className="border rounded-lg p-3 text-sm">
+          <button
+            key={m.id}
+            onClick={() => setMantenimientoDetalle(m)}
+            className="w-full border rounded-lg p-3 text-sm text-left hover:bg-gray-50"
+          >
             <div className="flex justify-between">
               <p className="font-semibold">{m.tipo}</p>
               <p className="text-gray-500">{m.fecha}</p>
             </div>
             <p className="text-gray-500">
               {m.km ? `${Math.round(m.km).toLocaleString()} km · ` : ""}
-              {m.costo ? `Costo: ${m.costo.toFixed(2)}` : ""}
+              Costo total: {(m.costo_total ?? 0).toFixed(2)}
             </p>
-            {m.taller && <p className="text-gray-500">Taller: {m.taller}</p>}
-            {m.notas && <p className="text-gray-500">{m.notas}</p>}
-          </div>
+          </button>
         ))}
         {!cargando && mantenimientos.length === 0 && <p className="text-gray-500">Sin mantenimientos registrados.</p>}
       </div>
+    </div>
+  );
+}
+
+function ExpedienteMantenimiento({ mantenimiento, onVolver }: { mantenimiento: Mantenimiento; onVolver: () => void }) {
+  const [detalle, setDetalle] = useState<Mantenimiento | null>(null);
+  const [cargando, setCargando] = useState(true);
+
+  useEffect(() => {
+    cargarDetalle();
+  }, []);
+
+  async function cargarDetalle() {
+    setCargando(true);
+    const res = await fetch(`/api/admin/mantenimientos/${mantenimiento.id}`);
+    const json = await res.json();
+    setDetalle(json.mantenimiento ?? null);
+    setCargando(false);
+  }
+
+  return (
+    <div>
+      <button onClick={onVolver} className="text-sm mb-3">
+        ← Volver al historial
+      </button>
+      <h2 className="font-semibold mb-1">{mantenimiento.tipo}</h2>
+      <p className="text-sm text-gray-500 mb-3">
+        {mantenimiento.fecha} {mantenimiento.km ? `· ${Math.round(mantenimiento.km).toLocaleString()} km` : ""}
+      </p>
+
+      {cargando && <p className="text-gray-500">Cargando...</p>}
+
+      {detalle && (
+        <>
+          {detalle.productos && detalle.productos.length > 0 && (
+            <div className="mb-3">
+              <p className="font-semibold text-sm mb-1">Productos usados</p>
+              {detalle.productos.map((p) => (
+                <div key={p.id} className="text-sm border-b pb-1 flex justify-between">
+                  <span>
+                    {p.producto_nombre} × {p.cantidad}
+                  </span>
+                  <span>{p.subtotal.toFixed(2)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {(detalle.costo_servicio_tercero ?? 0) > 0 && (
+            <div className="mb-3">
+              <p className="font-semibold text-sm mb-1">Servicio de tercero</p>
+              <p className="text-sm">Proveedor: {detalle.proveedor_tercero ?? "—"}</p>
+              <p className="text-sm">Costo: {detalle.costo_servicio_tercero?.toFixed(2)}</p>
+              {detalle.descripcion_servicio_tercero && (
+                <p className="text-sm text-gray-500">{detalle.descripcion_servicio_tercero}</p>
+              )}
+            </div>
+          )}
+
+          {detalle.notas && (
+            <div className="mb-3">
+              <p className="font-semibold text-sm mb-1">Notas</p>
+              <p className="text-sm text-gray-500">{detalle.notas}</p>
+            </div>
+          )}
+
+          <div className="border-t pt-2">
+            <p className="font-bold">Costo total: {(detalle.costo_total ?? 0).toFixed(2)}</p>
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -41,14 +41,52 @@ export interface Movimiento {
   created_at: string;
 }
 
+export interface Producto {
+  id: string;
+  nombre: string;
+  unidad: string | null;
+  precio_unitario: number;
+  stock_actual: number;
+  created_at: string;
+}
+
+export interface IntervaloMantenimiento {
+  id: string;
+  camion_id: string;
+  tipo: string;
+  intervalo_km: number;
+}
+
+export interface MantenimientoProducto {
+  id: string;
+  mantenimiento_id: string;
+  producto_id: string;
+  producto_nombre: string;
+  cantidad: number;
+  precio_unitario_momento: number;
+  subtotal: number;
+}
+
 export interface Mantenimiento {
   id: string;
   camion_id: string;
   tipo: string;
   fecha: string;
   km: number | null;
-  costo: number | null;
-  taller: string | null;
+  costo_total: number | null;
+  proveedor_tercero: string | null;
+  costo_servicio_tercero: number | null;
+  descripcion_servicio_tercero: string | null;
   notas: string | null;
   created_at: string;
+  productos?: MantenimientoProducto[];
+}
+
+export interface AlertaMantenimiento {
+  tipo: string;
+  intervalo_km: number;
+  km_ultimo_mantenimiento: number | null;
+  km_proximo: number;
+  km_faltantes: number;
+  estado: "ok" | "proximo" | "vencido";
 }
