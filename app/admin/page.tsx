@@ -9,6 +9,10 @@ import type {
   IntervaloMantenimiento,
   Mantenimiento,
   AlertaMantenimiento,
+  DocumentoVehiculo,
+  TipoDocumento,
+  AlertaDocumento,
+  AlertaMantenimientoReporte,
 } from "@/lib/tipos";
 
 export default function AdminPage() {
@@ -96,7 +100,9 @@ function PantallaLogin({ onLogin }: { onLogin: () => void }) {
 }
 
 function PanelAdmin() {
-  const [tab, setTab] = useState<"vehiculos" | "operaciones" | "mantenimientos" | "inventario">("vehiculos");
+  const [tab, setTab] = useState<"reportes" | "vehiculos" | "operaciones" | "mantenimientos" | "inventario">(
+    "reportes"
+  );
 
   async function cerrarSesion() {
     await fetch("/api/admin/logout", { method: "POST" });
@@ -104,10 +110,11 @@ function PanelAdmin() {
   }
 
   const tabs: { id: typeof tab; label: string }[] = [
+    { id: "reportes", label: "Reportes" },
     { id: "vehiculos", label: "Vehículos" },
-    { id: "operaciones", label: "Operaciones" },
+    { id: "operaciones", label: "Operac." },
     { id: "mantenimientos", label: "Mantenim." },
-    { id: "inventario", label: "Inventario" },
+    { id: "inventario", label: "Invent." },
   ];
 
   return (
@@ -119,7 +126,7 @@ function PanelAdmin() {
         </button>
       </div>
 
-      <div className="grid grid-cols-4 gap-1 mb-4">
+      <div className="grid grid-cols-5 gap-1 mb-4">
         {tabs.map((t) => (
           <button
             key={t.id}
@@ -131,6 +138,7 @@ function PanelAdmin() {
         ))}
       </div>
 
+      {tab === "reportes" && <PanelReportes />}
       {tab === "vehiculos" && <PanelVehiculos />}
       {tab === "operaciones" && <PanelOperaciones />}
       {tab === "mantenimientos" && <PanelMantenimientos />}
@@ -145,6 +153,7 @@ function PanelVehiculos() {
   const [camiones, setCamiones] = useState<Camion[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
+  const [camionDocumentos, setCamionDocumentos] = useState<Camion | null>(null);
 
   const [nombreNuevo, setNombreNuevo] = useState("");
   const [capacidadNueva, setCapacidadNueva] = useState("");
@@ -244,6 +253,10 @@ function PanelVehiculos() {
     await cargarCamiones();
   }
 
+  if (camionDocumentos) {
+    return <DetalleDocumentos camion={camionDocumentos} onVolver={() => setCamionDocumentos(null)} />;
+  }
+
   return (
     <div>
       <h2 className="font-semibold mb-2">Vehículos</h2>
@@ -330,9 +343,14 @@ function PanelVehiculos() {
                     </p>
                   )}
                 </div>
-                <button onClick={() => empezarEdicion(c)} className="text-xs border rounded px-2 py-1">
-                  Editar
-                </button>
+                <div className="flex flex-col gap-1">
+                  <button onClick={() => empezarEdicion(c)} className="text-xs border rounded px-2 py-1">
+                    Editar
+                  </button>
+                  <button onClick={() => setCamionDocumentos(c)} className="text-xs border rounded px-2 py-1">
+                    Documentos
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -1268,6 +1286,229 @@ function ExpedienteMantenimiento({ mantenimiento, onVolver }: { mantenimiento: M
             <p className="font-bold">Costo total: {(detalle.costo_total ?? 0).toFixed(2)}</p>
           </div>
         </>
+      )}
+    </div>
+  );
+}
+
+/* ================= DOCUMENTOS DEL VEHÍCULO ================= */
+
+const TIPOS_DOCUMENTO: { id: TipoDocumento; label: string }[] = [
+  { id: "seguro", label: "Seguro" },
+  { id: "inspeccion_tecnica", label: "Inspección técnica" },
+  { id: "carta_alquiler", label: "Carta de alquiler" },
+];
+
+function DetalleDocumentos({ camion, onVolver }: { camion: Camion; onVolver: () => void }) {
+  const [documentos, setDocumentos] = useState<DocumentoVehiculo[]>([]);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState("");
+
+  const [tipoNuevo, setTipoNuevo] = useState<TipoDocumento>("seguro");
+  const [fechaEmisionNueva, setFechaEmisionNueva] = useState("");
+  const [fechaCaducidadNueva, setFechaCaducidadNueva] = useState("");
+
+  useEffect(() => {
+    cargarDocumentos();
+  }, []);
+
+  async function cargarDocumentos() {
+    setCargando(true);
+    const res = await fetch(`/api/admin/documentos?camion_id=${camion.id}`);
+    const json = await res.json();
+    setDocumentos(json.documentos ?? []);
+    setCargando(false);
+  }
+
+  async function registrarDocumento() {
+    setError("");
+    if (!fechaCaducidadNueva) {
+      setError("Falta la fecha de caducidad");
+      return;
+    }
+    const res = await fetch("/api/admin/documentos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        camion_id: camion.id,
+        tipo: tipoNuevo,
+        fecha_emision: fechaEmisionNueva || null,
+        fecha_caducidad: fechaCaducidadNueva,
+      }),
+    });
+    const json = await res.json();
+    if (json.error) {
+      setError(json.error);
+      return;
+    }
+    setFechaEmisionNueva("");
+    setFechaCaducidadNueva("");
+    await cargarDocumentos();
+  }
+
+  function calcularEstado(fechaCaducidad: string) {
+    const hoy = new Date();
+    const caducidad = new Date(fechaCaducidad);
+    const diasRestantes = Math.round((caducidad.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
+    if (diasRestantes <= 0) return { estado: "vencido", diasRestantes };
+    if (diasRestantes <= 30) return { estado: "proximo", diasRestantes };
+    return { estado: "ok", diasRestantes };
+  }
+
+  const colores: Record<string, string> = { ok: "text-green-700", proximo: "text-amber-700", vencido: "text-red-700" };
+  const iconos: Record<string, string> = { ok: "✅", proximo: "⚡", vencido: "⚠️" };
+
+  return (
+    <div>
+      <button onClick={onVolver} className="text-sm mb-3">
+        ← Volver a vehículos
+      </button>
+      <h2 className="font-semibold mb-1">{camion.matricula || camion.nombre}</h2>
+      <p className="text-sm text-gray-500 mb-3">{camion.nombre}</p>
+
+      {cargando && <p className="text-gray-500">Cargando...</p>}
+
+      <div className="space-y-2 mb-4">
+        {TIPOS_DOCUMENTO.map((td) => {
+          const vigente = documentos.find((d) => d.tipo === td.id);
+          const estado = vigente ? calcularEstado(vigente.fecha_caducidad) : null;
+          return (
+            <div key={td.id} className="border rounded-lg p-3">
+              <p className="font-semibold text-sm">{td.label}</p>
+              {vigente ? (
+                <p className={`text-sm ${estado ? colores[estado.estado] : ""}`}>
+                  {estado && iconos[estado.estado]} Vence: {vigente.fecha_caducidad}{" "}
+                  {estado &&
+                    (estado.estado === "vencido"
+                      ? `(vencido hace ${Math.abs(estado.diasRestantes)} días)`
+                      : `(en ${estado.diasRestantes} días)`)}
+                </p>
+              ) : (
+                <p className="text-sm text-gray-500">Sin registrar</p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="border-t pt-4">
+        <h2 className="font-semibold mb-2">Registrar / renovar documento</h2>
+        <p className="text-xs text-gray-500">Tipo</p>
+        <select
+          value={tipoNuevo}
+          onChange={(e) => setTipoNuevo(e.target.value as TipoDocumento)}
+          className="border rounded-lg p-2 w-full mb-2"
+        >
+          {TIPOS_DOCUMENTO.map((td) => (
+            <option key={td.id} value={td.id}>
+              {td.label}
+            </option>
+          ))}
+        </select>
+        <p className="text-xs text-gray-500">Fecha de emisión</p>
+        <input
+          type="date"
+          value={fechaEmisionNueva}
+          onChange={(e) => setFechaEmisionNueva(e.target.value)}
+          className="border rounded-lg p-2 w-full mb-2"
+        />
+        <p className="text-xs text-gray-500">Fecha de caducidad</p>
+        <input
+          type="date"
+          value={fechaCaducidadNueva}
+          onChange={(e) => setFechaCaducidadNueva(e.target.value)}
+          className="border rounded-lg p-2 w-full mb-2"
+        />
+        {error && <p className="text-red-600 text-sm mb-2">{error}</p>}
+        <button onClick={registrarDocumento} className="border rounded-lg p-2 w-full font-semibold">
+          Guardar
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ================= REPORTES ================= */
+
+const LABELS_DOCUMENTO: Record<TipoDocumento, string> = {
+  seguro: "Seguro",
+  inspeccion_tecnica: "Inspección técnica",
+  carta_alquiler: "Carta de alquiler",
+};
+
+function PanelReportes() {
+  const [alertasMantenimiento, setAlertasMantenimiento] = useState<AlertaMantenimientoReporte[]>([]);
+  const [alertasDocumentos, setAlertasDocumentos] = useState<AlertaDocumento[]>([]);
+  const [cargando, setCargando] = useState(true);
+
+  useEffect(() => {
+    cargarReportes();
+  }, []);
+
+  async function cargarReportes() {
+    setCargando(true);
+    const res = await fetch("/api/admin/reportes");
+    const json = await res.json();
+    setAlertasMantenimiento(json.alertasMantenimiento ?? []);
+    setAlertasDocumentos(json.alertasDocumentos ?? []);
+    setCargando(false);
+  }
+
+  const colores: Record<string, string> = { proximo: "text-amber-700 bg-amber-50 border-amber-400", vencido: "text-red-700 bg-red-50 border-red-400" };
+  const iconos: Record<string, string> = { proximo: "⚡", vencido: "⚠️" };
+
+  const sinAlertas = alertasMantenimiento.length === 0 && alertasDocumentos.length === 0;
+
+  return (
+    <div>
+      <h2 className="font-semibold mb-2">Reportes y alertas</h2>
+      {cargando && <p className="text-gray-500">Cargando...</p>}
+
+      {!cargando && sinAlertas && (
+        <p className="text-green-700 bg-green-50 border border-green-400 rounded-lg p-3">
+          ✅ Todo al día. No hay alertas de mantenimiento ni documentos por vencer.
+        </p>
+      )}
+
+      {alertasDocumentos.length > 0 && (
+        <div className="mb-4">
+          <h3 className="font-semibold text-sm mb-2">Documentos del vehículo</h3>
+          <div className="space-y-2">
+            {alertasDocumentos.map((a, i) => (
+              <div key={i} className={`border rounded-lg p-3 ${colores[a.estado]}`}>
+                <p className="font-semibold text-sm">
+                  {iconos[a.estado]} {a.camion_matricula || a.camion_nombre} — {LABELS_DOCUMENTO[a.tipo]}
+                </p>
+                <p className="text-sm">
+                  {a.estado === "vencido"
+                    ? `Vencido hace ${Math.abs(a.dias_restantes)} días`
+                    : `Vence en ${a.dias_restantes} días`}{" "}
+                  ({a.fecha_caducidad})
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {alertasMantenimiento.length > 0 && (
+        <div className="mb-4">
+          <h3 className="font-semibold text-sm mb-2">Mantenimiento preventivo</h3>
+          <div className="space-y-2">
+            {alertasMantenimiento.map((a, i) => (
+              <div key={i} className={`border rounded-lg p-3 ${colores[a.estado]}`}>
+                <p className="font-semibold text-sm">
+                  {iconos[a.estado]} {a.camion_matricula || a.camion_nombre} — {a.tipo}
+                </p>
+                <p className="text-sm">
+                  {a.estado === "vencido"
+                    ? `Vencido hace ${Math.abs(Math.round(a.km_faltantes)).toLocaleString()} km`
+                    : `Faltan ${Math.round(a.km_faltantes).toLocaleString()} km`}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );

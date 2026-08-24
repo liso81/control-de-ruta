@@ -90,3 +90,30 @@ export interface AlertaMantenimiento {
   km_faltantes: number;
   estado: "ok" | "proximo" | "vencido";
 }
+
+export type TipoDocumento = "seguro" | "inspeccion_tecnica" | "carta_alquiler";
+
+export interface DocumentoVehiculo {
+  id: string;
+  camion_id: string;
+  tipo: TipoDocumento;
+  fecha_emision: string | null;
+  fecha_caducidad: string;
+  created_at: string;
+}
+
+export interface AlertaDocumento {
+  camion_id: string;
+  camion_nombre: string;
+  camion_matricula: string | null;
+  tipo: TipoDocumento;
+  fecha_caducidad: string;
+  dias_restantes: number;
+  estado: "ok" | "proximo" | "vencido";
+}
+
+export interface AlertaMantenimientoReporte extends AlertaMantenimiento {
+  camion_id: string;
+  camion_nombre: string;
+  camion_matricula: string | null;
+}
