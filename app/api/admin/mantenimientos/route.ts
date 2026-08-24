@@ -11,19 +11,30 @@ async function requiereSesion() {
   return verificarSesion(token);
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const sesion = await requiereSesion();
   if (!sesion) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
-  const { data, error } = await supabaseAdmin.from("camiones").select("*").order("nombre");
+  const { searchParams } = new URL(request.url);
+  const camion_id = searchParams.get("camion_id");
+
+  if (!camion_id) {
+    return NextResponse.json({ error: "Falta camion_id" }, { status: 400 });
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from("mantenimientos")
+    .select("*")
+    .eq("camion_id", camion_id)
+    .order("fecha", { ascending: false });
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ camiones: data });
+  return NextResponse.json({ mantenimientos: data });
 }
 
 export async function POST(request: Request) {
@@ -33,23 +44,22 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const { nombre, capacidad_litros, matricula, marca, km_por_litro, km_base, precio_gasoleo_litro } = body;
+  const { camion_id, tipo, fecha, km, costo, taller, notas } = body;
 
-  if (!nombre || !capacidad_litros) {
-    return NextResponse.json({ error: "Faltan nombre o capacidad" }, { status: 400 });
+  if (!camion_id || !tipo) {
+    return NextResponse.json({ error: "Faltan camion_id o tipo" }, { status: 400 });
   }
 
   const { data, error } = await supabaseAdmin
-    .from("camiones")
+    .from("mantenimientos")
     .insert({
-      nombre,
-      capacidad_litros,
-      litros_actual: capacidad_litros,
-      matricula: matricula ?? null,
-      marca: marca ?? null,
-      km_por_litro: km_por_litro ?? null,
-      km_base: km_base ?? 0,
-      precio_gasoleo_litro: precio_gasoleo_litro ?? null,
+      camion_id,
+      tipo,
+      fecha: fecha || new Date().toISOString().slice(0, 10),
+      km: km ?? null,
+      costo: costo ?? null,
+      taller: taller ?? null,
+      notas: notas ?? null,
     })
     .select()
     .single();
@@ -58,5 +68,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ camion: data });
+  return NextResponse.json({ mantenimiento: data });
 }

@@ -19,7 +19,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const { id } = await params;
   const body = await request.json();
-  const { nombre, capacidad_litros, matricula, marca, km_por_litro } = body;
+  const { nombre, capacidad_litros, matricula, marca, km_por_litro, km_base, precio_gasoleo_litro } = body;
 
   const { data: original, error: errorOriginal } = await supabaseAdmin
     .from("camiones")
@@ -36,6 +36,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (matricula !== undefined) cambios.matricula = matricula;
   if (marca !== undefined) cambios.marca = marca;
   if (km_por_litro !== undefined) cambios.km_por_litro = km_por_litro;
+  if (km_base !== undefined) cambios.km_base = km_base;
+  if (precio_gasoleo_litro !== undefined) cambios.precio_gasoleo_litro = precio_gasoleo_litro;
 
   // Si cambia la capacidad, ajustamos la existencia actual por la misma
   // diferencia (delta), y la topeamos para que nunca supere la nueva

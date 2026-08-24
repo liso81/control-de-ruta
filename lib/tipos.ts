@@ -6,6 +6,8 @@ export interface Camion {
   matricula: string | null;
   marca: string | null;
   km_por_litro: number | null;
+  km_base: number | null;
+  precio_gasoleo_litro: number | null;
 }
 
 export interface Turno {
@@ -36,5 +38,17 @@ export interface Movimiento {
   categoria: string | null;
   cliente_nota: string | null;
   cliente_telefono: string | null;
+  created_at: string;
+}
+
+export interface Mantenimiento {
+  id: string;
+  camion_id: string;
+  tipo: string;
+  fecha: string;
+  km: number | null;
+  costo: number | null;
+  taller: string | null;
+  notas: string | null;
   created_at: string;
 }
