@@ -1729,6 +1729,7 @@ function FormularioProvision({ camion, onVolver }: { camion: Camion; onVolver: (
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [guardado, setGuardado] = useState(false);
+  const [modoEdicion, setModoEdicion] = useState(false);
 
   useEffect(() => {
     cargarDatos();
@@ -1738,7 +1739,10 @@ function FormularioProvision({ camion, onVolver }: { camion: Camion; onVolver: (
     setCargando(true);
     const res = await fetch(`/api/admin/provision?camion_id=${camion.id}`);
     const json = await res.json();
-    setDatos(json.datos ?? {});
+    const datosCargados = json.datos ?? {};
+    setDatos(datosCargados);
+    // Si no hay datos guardados todavía, arrancamos directo en modo edición.
+    setModoEdicion(Object.keys(datosCargados).length === 0);
     setCargando(false);
   }
 
@@ -1756,6 +1760,7 @@ function FormularioProvision({ camion, onVolver }: { camion: Camion; onVolver: (
     });
     setGuardando(false);
     setGuardado(true);
+    setModoEdicion(false);
   }
 
   // --- Variables base ---
@@ -1824,6 +1829,26 @@ function FormularioProvision({ camion, onVolver }: { camion: Camion; onVolver: (
 
       {cargando && <p className="text-gray-500">Cargando...</p>}
 
+      {!cargando && !modoEdicion && (
+        <div>
+          <div className="border rounded-lg p-3 mb-3">
+            <p className="text-sm">
+              Km recorridos al mes: <strong>{kmRecorridosMes.toLocaleString()}</strong>
+            </p>
+            <p className="text-sm">Subtotal fijo diario: {subtotalFijo.toFixed(2)}</p>
+            <p className="text-sm">Subtotal variable diario: {subtotalVariable.toFixed(2)}</p>
+          </div>
+          <div className="border-2 border-black rounded-lg p-3 mb-4">
+            <p className="font-bold">Provisión diaria total: {provisionDiaria.toFixed(2)}</p>
+          </div>
+          <button onClick={() => setModoEdicion(true)} className="border rounded-lg p-2 w-full font-semibold">
+            Editar
+          </button>
+        </div>
+      )}
+
+      {!cargando && modoEdicion && (
+        <>
       {/* Km recorridos */}
       <div className="border rounded-lg p-3 mb-3">
         <p className="font-semibold text-sm mb-2">Km recorridos</p>
@@ -1925,6 +1950,14 @@ function FormularioProvision({ camion, onVolver }: { camion: Camion; onVolver: (
       <button onClick={guardar} disabled={guardando} className="border rounded-lg p-2 w-full font-semibold">
         {guardando ? "Guardando..." : guardado ? "✓ Guardado" : "Guardar datos"}
       </button>
+      <button
+        onClick={() => setModoEdicion(false)}
+        className="border rounded-lg p-2 w-full font-semibold mt-2"
+      >
+        Cancelar
+      </button>
+      </>
+      )}
     </div>
   );
 }
