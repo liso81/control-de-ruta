@@ -170,3 +170,37 @@ export interface DatosProvisionFondos {
   valorArreglosMotor?: string;
   valorOtrasRoturas?: string;
 }
+
+export const SUBMAYORES_PROVISION = [
+  "vehiculo",
+  "neumaticos",
+  "baterias",
+  "inspeccion",
+  "seguro",
+  "carta_alquiler",
+  "aceite",
+  "filtros",
+  "otros_materiales",
+  "chapisteria",
+  "pintura",
+  "arreglos_motor",
+  "otras_roturas",
+] as const;
+
+export type Submayor = (typeof SUBMAYORES_PROVISION)[number];
+
+export interface MayorProvisionEntry {
+  id: string;
+  camion_id: string;
+  submayor: Submayor;
+  fecha: string;
+  tipo: "credito" | "debito";
+  monto: number;
+  descripcion: string | null;
+  created_at: string;
+}
+
+export interface SaldoSubmayor {
+  submayor: Submayor;
+  saldo: number;
+}

@@ -16,6 +16,7 @@ import type {
   CuentaPorCobrar,
   AlertaCuentaPorCobrar,
   DatosProvisionFondos,
+  SaldoSubmayor,
 } from "@/lib/tipos";
 
 export default function AdminPage() {
@@ -1730,10 +1731,32 @@ function FormularioProvision({ camion, onVolver }: { camion: Camion; onVolver: (
   const [guardando, setGuardando] = useState(false);
   const [guardado, setGuardado] = useState(false);
   const [modoEdicion, setModoEdicion] = useState(false);
+  const [saldos, setSaldos] = useState<SaldoSubmayor[]>([]);
+  const [saldoTotal, setSaldoTotal] = useState(0);
+  const [acreditando, setAcreditando] = useState(false);
 
   useEffect(() => {
     cargarDatos();
+    cargarMayor();
   }, []);
+
+  async function cargarMayor() {
+    const res = await fetch(`/api/admin/provision/mayor?camion_id=${camion.id}`);
+    const json = await res.json();
+    setSaldos(json.saldos ?? []);
+    setSaldoTotal(json.saldoTotal ?? 0);
+  }
+
+  async function acreditarHoy() {
+    setAcreditando(true);
+    await fetch("/api/admin/provision/acreditar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ camion_id: camion.id }),
+    });
+    await cargarMayor();
+    setAcreditando(false);
+  }
 
   async function cargarDatos() {
     setCargando(true);
@@ -1841,6 +1864,35 @@ function FormularioProvision({ camion, onVolver }: { camion: Camion; onVolver: (
           <div className="border-2 border-black rounded-lg p-3 mb-4">
             <p className="font-bold">Provisión diaria total: {provisionDiaria.toFixed(2)}</p>
           </div>
+
+          <div className="border rounded-lg p-3 mb-3">
+            <div className="flex justify-between items-center mb-2">
+              <p className="font-semibold text-sm">Mayor de provisión (saldo acreedor)</p>
+              <button
+                onClick={acreditarHoy}
+                disabled={acreditando}
+                className="text-xs border rounded px-2 py-1"
+              >
+                {acreditando ? "Acreditando..." : "Acreditar hoy"}
+              </button>
+            </div>
+            <div className="space-y-1">
+              {saldos.map((s) => (
+                <div key={s.submayor} className="flex justify-between text-sm">
+                  <span className="capitalize">{s.submayor.replace(/_/g, " ")}</span>
+                  <span>{s.saldo.toFixed(2)}</span>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-between font-bold text-sm border-t mt-2 pt-2">
+              <span>Saldo total acreedor</span>
+              <span>{saldoTotal.toFixed(2)}</span>
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              Este saldo se debita desde la pestaña Finanzas cuando efectivamente se gasta en cada rubro.
+            </p>
+          </div>
+
           <button onClick={() => setModoEdicion(true)} className="border rounded-lg p-2 w-full font-semibold">
             Editar
           </button>
