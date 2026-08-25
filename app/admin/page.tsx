@@ -15,6 +15,7 @@ import type {
   AlertaMantenimientoReporte,
   CuentaPorCobrar,
   AlertaCuentaPorCobrar,
+  DatosProvisionFondos,
 } from "@/lib/tipos";
 
 export default function AdminPage() {
@@ -103,7 +104,7 @@ function PantallaLogin({ onLogin }: { onLogin: () => void }) {
 
 function PanelAdmin() {
   const [tab, setTab] = useState<
-    "reportes" | "vehiculos" | "operaciones" | "mantenimientos" | "inventario" | "cxc"
+    "reportes" | "vehiculos" | "operaciones" | "mantenimientos" | "inventario" | "cxc" | "provision"
   >("reportes");
 
   async function cerrarSesion() {
@@ -118,6 +119,7 @@ function PanelAdmin() {
     { id: "mantenimientos", label: "Mantenim." },
     { id: "inventario", label: "Invent." },
     { id: "cxc", label: "Cuentas x Cobrar" },
+    { id: "provision", label: "Provisión de Fondos" },
   ];
 
   return (
@@ -147,6 +149,7 @@ function PanelAdmin() {
       {tab === "mantenimientos" && <PanelMantenimientos />}
       {tab === "inventario" && <PanelInventario />}
       {tab === "cxc" && <PanelCuentasPorCobrar />}
+      {tab === "provision" && <PanelProvisionFondos />}
     </main>
   );
 }
@@ -1635,6 +1638,293 @@ function PanelCuentasPorCobrar() {
         })}
         {!cargando && cuentas.length === 0 && <p className="text-gray-500">Sin cuentas por cobrar.</p>}
       </div>
+    </div>
+  );
+}
+
+/* ================= PROVISIÓN DE FONDOS ================= */
+
+function numero(v: string | undefined): number {
+  const n = parseFloat(v ?? "");
+  return isNaN(n) ? 0 : n;
+}
+
+function divisionSegura(numerador: number, ...divisores: number[]): number {
+  for (const d of divisores) {
+    if (!d) return 0;
+  }
+  let resultado = numerador;
+  for (const d of divisores) {
+    resultado = resultado / d;
+  }
+  return resultado;
+}
+
+function PanelProvisionFondos() {
+  const [camiones, setCamiones] = useState<Camion[]>([]);
+  const [cargando, setCargando] = useState(true);
+  const [camionSeleccionado, setCamionSeleccionado] = useState<Camion | null>(null);
+
+  useEffect(() => {
+    cargarCamiones();
+  }, []);
+
+  async function cargarCamiones() {
+    setCargando(true);
+    const res = await fetch("/api/admin/camiones");
+    const json = await res.json();
+    setCamiones(json.camiones ?? []);
+    setCargando(false);
+  }
+
+  if (camionSeleccionado) {
+    return <FormularioProvision camion={camionSeleccionado} onVolver={() => setCamionSeleccionado(null)} />;
+  }
+
+  return (
+    <div>
+      <h2 className="font-semibold mb-2">Elegí un camión</h2>
+      {cargando && <p className="text-gray-500">Cargando...</p>}
+      <div className="space-y-2">
+        {camiones.map((c) => (
+          <button
+            key={c.id}
+            onClick={() => setCamionSeleccionado(c)}
+            className="w-full border rounded-lg p-3 text-left hover:bg-gray-50"
+          >
+            <p className="font-semibold">{c.matricula || c.nombre}</p>
+            <p className="text-sm text-gray-500">{c.nombre}</p>
+          </button>
+        ))}
+        {!cargando && camiones.length === 0 && <p className="text-gray-500">No hay camiones cargados todavía.</p>}
+      </div>
+    </div>
+  );
+}
+
+function Campo({
+  label,
+  valor,
+  onChange,
+}: {
+  label: string;
+  valor: string | undefined;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="mb-2">
+      <p className="text-xs text-gray-500">{label}</p>
+      <input
+        type="number"
+        value={valor ?? ""}
+        onChange={(e) => onChange(e.target.value)}
+        className="border rounded-lg p-2 w-full"
+      />
+    </div>
+  );
+}
+
+function FormularioProvision({ camion, onVolver }: { camion: Camion; onVolver: () => void }) {
+  const [datos, setDatos] = useState<DatosProvisionFondos>({});
+  const [cargando, setCargando] = useState(true);
+  const [guardando, setGuardando] = useState(false);
+  const [guardado, setGuardado] = useState(false);
+
+  useEffect(() => {
+    cargarDatos();
+  }, []);
+
+  async function cargarDatos() {
+    setCargando(true);
+    const res = await fetch(`/api/admin/provision?camion_id=${camion.id}`);
+    const json = await res.json();
+    setDatos(json.datos ?? {});
+    setCargando(false);
+  }
+
+  function set(campo: keyof DatosProvisionFondos, valor: string) {
+    setDatos((prev) => ({ ...prev, [campo]: valor }));
+    setGuardado(false);
+  }
+
+  async function guardar() {
+    setGuardando(true);
+    await fetch("/api/admin/provision", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ camion_id: camion.id, datos }),
+    });
+    setGuardando(false);
+    setGuardado(true);
+  }
+
+  // --- Variables base ---
+  const a = numero(datos.diasTrabajoMes);
+  const b = numero(datos.posiblesViajes);
+  const c = numero(datos.promedioKm);
+
+  const d = numero(datos.valorVehiculo);
+  const e = numero(datos.vidaUtilVehiculo);
+  const f = numero(datos.valorNeumaticos);
+  const g = numero(datos.vidaUtilNeumaticos);
+  const h = numero(datos.valorBaterias);
+  const i = numero(datos.vidaUtilBaterias);
+  const j = numero(datos.valorInspeccion);
+  const k = numero(datos.vidaUtilInspeccion);
+  const l = numero(datos.valorSeguro);
+  const m = numero(datos.vidaUtilSeguro);
+  const n = numero(datos.valorCartaAlquiler);
+  const o = numero(datos.vidaUtilCartaAlquiler);
+
+  const p = numero(datos.valorAceite);
+  const q = numero(datos.capacidadEnvase);
+  const r = numero(datos.capacidadMotor);
+  const s = numero(datos.kmCambioAceite);
+  const t = numero(datos.valorFiltro);
+  const u = numero(datos.valorOtroMaterial);
+
+  const chapisteria = numero(datos.valorChapisteria);
+  const pintura = numero(datos.valorPintura);
+  const arreglosMotor = numero(datos.valorArreglosMotor);
+  const otrasRoturas = numero(datos.valorOtrasRoturas);
+
+  // --- Cálculos ---
+  const kmRecorridosMes = a * b * c;
+
+  const depVehiculo = divisionSegura(d, e, 12, a);
+  const depNeumaticos = divisionSegura(f, g, a);
+  const depBaterias = divisionSegura(h, i, a);
+  const depInspeccion = divisionSegura(j, k, a);
+  const depSeguro = divisionSegura(l, m, a);
+  const depCartaAlquiler = divisionSegura(n, o, a);
+  const subtotalFijo = depVehiculo + depNeumaticos + depBaterias + depInspeccion + depSeguro + depCartaAlquiler;
+
+  const costoAceitePorCambio = q ? (p / q) * r : 0;
+  const aceite = s ? divisionSegura(costoAceitePorCambio, s) * b * c : 0;
+  const filtros = s ? divisionSegura(t, s) * b * c : 0;
+  const otrosMateriales = s ? divisionSegura(u, s) * b * c : 0;
+
+  const chapisteriaDiaria = divisionSegura(chapisteria, 12, a);
+  const pinturaDiaria = divisionSegura(pintura, 12, a);
+  const arreglosMotorDiaria = divisionSegura(arreglosMotor, 12, a);
+  const otrasRoturasDiaria = divisionSegura(otrasRoturas, 12, a);
+
+  const subtotalVariable =
+    aceite + filtros + otrosMateriales + chapisteriaDiaria + pinturaDiaria + arreglosMotorDiaria + otrasRoturasDiaria;
+
+  const provisionDiaria = subtotalFijo + subtotalVariable;
+
+  return (
+    <div>
+      <button onClick={onVolver} className="text-sm mb-3">
+        ← Volver a camiones
+      </button>
+      <h2 className="font-semibold mb-1">{camion.matricula || camion.nombre}</h2>
+      <p className="text-sm text-gray-500 mb-3">{camion.nombre}</p>
+
+      {cargando && <p className="text-gray-500">Cargando...</p>}
+
+      {/* Km recorridos */}
+      <div className="border rounded-lg p-3 mb-3">
+        <p className="font-semibold text-sm mb-2">Km recorridos</p>
+        <Campo label="Días de trabajo al mes (a)" valor={datos.diasTrabajoMes} onChange={(v) => set("diasTrabajoMes", v)} />
+        <Campo label="Posibles viajes por día (b)" valor={datos.posiblesViajes} onChange={(v) => set("posiblesViajes", v)} />
+        <Campo label="Promedio km recorridos por viaje (c)" valor={datos.promedioKm} onChange={(v) => set("promedioKm", v)} />
+        <p className="text-sm pt-1">
+          Km recorridos al mes: <strong>{kmRecorridosMes.toLocaleString()}</strong>
+        </p>
+      </div>
+
+      {/* Costos fijos */}
+      <div className="border rounded-lg p-3 mb-3">
+        <p className="font-semibold text-sm mb-2">Otros costos fijos (depreciación diaria)</p>
+
+        <p className="text-xs font-semibold text-gray-600 mt-2">Vehículo</p>
+        <Campo label="Valor de compra (d)" valor={datos.valorVehiculo} onChange={(v) => set("valorVehiculo", v)} />
+        <Campo label="Vida útil en años (e)" valor={datos.vidaUtilVehiculo} onChange={(v) => set("vidaUtilVehiculo", v)} />
+        <p className="text-xs text-gray-500">Depreciación diaria: {depVehiculo.toFixed(2)}</p>
+
+        <p className="text-xs font-semibold text-gray-600 mt-3">Neumáticos</p>
+        <Campo label="Valor de compra (f)" valor={datos.valorNeumaticos} onChange={(v) => set("valorNeumaticos", v)} />
+        <Campo label="Vida útil (g)" valor={datos.vidaUtilNeumaticos} onChange={(v) => set("vidaUtilNeumaticos", v)} />
+        <p className="text-xs text-gray-500">Depreciación diaria: {depNeumaticos.toFixed(2)}</p>
+
+        <p className="text-xs font-semibold text-gray-600 mt-3">Baterías</p>
+        <Campo label="Valor de compra (h)" valor={datos.valorBaterias} onChange={(v) => set("valorBaterias", v)} />
+        <Campo label="Vida útil (i)" valor={datos.vidaUtilBaterias} onChange={(v) => set("vidaUtilBaterias", v)} />
+        <p className="text-xs text-gray-500">Depreciación diaria: {depBaterias.toFixed(2)}</p>
+
+        <p className="text-xs font-semibold text-gray-600 mt-3">Inspección técnica</p>
+        <Campo label="Valor de compra (j)" valor={datos.valorInspeccion} onChange={(v) => set("valorInspeccion", v)} />
+        <Campo label="Vida útil (k)" valor={datos.vidaUtilInspeccion} onChange={(v) => set("vidaUtilInspeccion", v)} />
+        <p className="text-xs text-gray-500">Depreciación diaria: {depInspeccion.toFixed(2)}</p>
+
+        <p className="text-xs font-semibold text-gray-600 mt-3">Seguro</p>
+        <Campo label="Valor de compra (l)" valor={datos.valorSeguro} onChange={(v) => set("valorSeguro", v)} />
+        <Campo label="Vida útil (m)" valor={datos.vidaUtilSeguro} onChange={(v) => set("vidaUtilSeguro", v)} />
+        <p className="text-xs text-gray-500">Depreciación diaria: {depSeguro.toFixed(2)}</p>
+
+        <p className="text-xs font-semibold text-gray-600 mt-3">Carta de alquiler</p>
+        <Campo
+          label="Valor de compra (n)"
+          valor={datos.valorCartaAlquiler}
+          onChange={(v) => set("valorCartaAlquiler", v)}
+        />
+        <Campo
+          label="Vida útil (o)"
+          valor={datos.vidaUtilCartaAlquiler}
+          onChange={(v) => set("vidaUtilCartaAlquiler", v)}
+        />
+        <p className="text-xs text-gray-500">Depreciación diaria: {depCartaAlquiler.toFixed(2)}</p>
+
+        <p className="font-bold text-sm pt-3 border-t mt-2">Subtotal fijo diario: {subtotalFijo.toFixed(2)}</p>
+      </div>
+
+      {/* Costos variables planificables */}
+      <div className="border rounded-lg p-3 mb-3">
+        <p className="font-semibold text-sm mb-2">Costos variables planificables</p>
+
+        <p className="text-xs font-semibold text-gray-600">Cambio de aceite</p>
+        <Campo label="Valor de compra del aceite (p)" valor={datos.valorAceite} onChange={(v) => set("valorAceite", v)} />
+        <Campo label="Capacidad del envase (q)" valor={datos.capacidadEnvase} onChange={(v) => set("capacidadEnvase", v)} />
+        <Campo label="Capacidad del motor (r)" valor={datos.capacidadMotor} onChange={(v) => set("capacidadMotor", v)} />
+        <Campo
+          label="Km planificados para el cambio (s)"
+          valor={datos.kmCambioAceite}
+          onChange={(v) => set("kmCambioAceite", v)}
+        />
+        <p className="text-xs text-gray-500">Óleo diario: {aceite.toFixed(2)}</p>
+
+        <Campo label="Valor de compra del filtro (t)" valor={datos.valorFiltro} onChange={(v) => set("valorFiltro", v)} />
+        <p className="text-xs text-gray-500">Filtros diario: {filtros.toFixed(2)}</p>
+
+        <Campo
+          label="Valor de compra otros materiales (u)"
+          valor={datos.valorOtroMaterial}
+          onChange={(v) => set("valorOtroMaterial", v)}
+        />
+        <p className="text-xs text-gray-500">Otros diario: {otrosMateriales.toFixed(2)}</p>
+
+        <p className="text-xs font-semibold text-gray-600 mt-3">Otras roturas estimadas (valor anual)</p>
+        <Campo label="Chapistería" valor={datos.valorChapisteria} onChange={(v) => set("valorChapisteria", v)} />
+        <p className="text-xs text-gray-500">Diario: {chapisteriaDiaria.toFixed(2)}</p>
+        <Campo label="Pintura" valor={datos.valorPintura} onChange={(v) => set("valorPintura", v)} />
+        <p className="text-xs text-gray-500">Diario: {pinturaDiaria.toFixed(2)}</p>
+        <Campo label="Arreglos de motor" valor={datos.valorArreglosMotor} onChange={(v) => set("valorArreglosMotor", v)} />
+        <p className="text-xs text-gray-500">Diario: {arreglosMotorDiaria.toFixed(2)}</p>
+        <Campo label="Otras roturas" valor={datos.valorOtrasRoturas} onChange={(v) => set("valorOtrasRoturas", v)} />
+        <p className="text-xs text-gray-500">Diario: {otrasRoturasDiaria.toFixed(2)}</p>
+
+        <p className="font-bold text-sm pt-3 border-t mt-2">Subtotal variable diario: {subtotalVariable.toFixed(2)}</p>
+      </div>
+
+      <div className="border-2 border-black rounded-lg p-3 mb-4">
+        <p className="font-bold">Provisión diaria total: {provisionDiaria.toFixed(2)}</p>
+      </div>
+
+      <button onClick={guardar} disabled={guardando} className="border rounded-lg p-2 w-full font-semibold">
+        {guardando ? "Guardando..." : guardado ? "✓ Guardado" : "Guardar datos"}
+      </button>
     </div>
   );
 }

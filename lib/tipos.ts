@@ -142,3 +142,31 @@ export interface AlertaCuentaPorCobrar {
   camion_matricula: string | null;
   estado: "proximo" | "vencido";
 }
+
+export interface DatosProvisionFondos {
+  diasTrabajoMes?: string;
+  posiblesViajes?: string;
+  promedioKm?: string;
+  valorVehiculo?: string;
+  vidaUtilVehiculo?: string;
+  valorNeumaticos?: string;
+  vidaUtilNeumaticos?: string;
+  valorBaterias?: string;
+  vidaUtilBaterias?: string;
+  valorInspeccion?: string;
+  vidaUtilInspeccion?: string;
+  valorSeguro?: string;
+  vidaUtilSeguro?: string;
+  valorCartaAlquiler?: string;
+  vidaUtilCartaAlquiler?: string;
+  valorAceite?: string;
+  capacidadEnvase?: string;
+  capacidadMotor?: string;
+  kmCambioAceite?: string;
+  valorFiltro?: string;
+  valorOtroMaterial?: string;
+  valorChapisteria?: string;
+  valorPintura?: string;
+  valorArreglosMotor?: string;
+  valorOtrasRoturas?: string;
+}
