@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   BarChart,
   Bar,
@@ -240,6 +240,8 @@ function PanelAdmin() {
           </button>
         </div>
       </nav>
+
+      <BotonCargarDocumento />
 
       {/* Hoja emergente con el resto de las secciones */}
       {menuAbierto && (
@@ -2603,7 +2605,7 @@ function PanelFinanzas() {
 
 /* ================= PARALIZACIONES ================= */
 
-const MOTIVOS_PARALIZACION: MotivoParalizacion[] = ["En taller", "Sin chofer", "Esperando repuesto", "Otro"];
+const MOTIVOS_PARALIZACION: MotivoParalizacion[] = ["En taller", "Sin chofer", "Esperando repuesto", "Sin actividad", "Otro"];
 
 function DetalleParalizaciones({ camion, onVolver }: { camion: Camion; onVolver: () => void }) {
   const [paralizaciones, setParalizaciones] = useState<Paralizacion[]>([]);
@@ -2749,5 +2751,386 @@ function DetalleParalizaciones({ camion, onVolver }: { camion: Camion; onVolver:
         )}
       </div>
     </div>
+  );
+}
+
+/* ================= CARGAR DOCUMENTO CON IA ================= */
+
+interface DatosIA {
+  tipo_documento: "factura_insumo" | "servicio_tercero" | "documento_vehiculo" | "otro_gasto" | "no_reconocido";
+  proveedor: string | null;
+  monto: number | null;
+  fecha: string | null;
+  descripcion: string | null;
+  producto_nombre: string | null;
+  cantidad: number | null;
+  tipo_documento_vehiculo: "seguro" | "inspeccion_tecnica" | "carta_alquiler" | null;
+  fecha_emision: string | null;
+  fecha_caducidad: string | null;
+  matricula: string | null;
+  confianza: "alta" | "media" | "baja";
+  notas_ia: string | null;
+}
+
+function BotonCargarDocumento() {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [procesando, setProcesando] = useState(false);
+  const [datos, setDatos] = useState<DatosIA | null>(null);
+  const [error, setError] = useState("");
+  const [camiones, setCamiones] = useState<Camion[]>([]);
+  const [camionId, setCamionId] = useState("");
+  const [guardando, setGuardando] = useState(false);
+  const [guardadoOk, setGuardadoOk] = useState(false);
+
+  function abrirCamara() {
+    inputRef.current?.click();
+  }
+
+  async function archivoSeleccionado(e: React.ChangeEvent<HTMLInputElement>) {
+    const archivo = e.target.files?.[0];
+    if (!archivo) return;
+
+    setError("");
+    setDatos(null);
+    setGuardadoOk(false);
+    setProcesando(true);
+
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(archivo);
+      });
+
+      const res = await fetch("/api/admin/ia/procesar-documento", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imagen_base64: base64, mime_type: archivo.type }),
+      });
+      const json = await res.json();
+
+      if (json.error) {
+        setError(json.error);
+        setProcesando(false);
+        return;
+      }
+
+      setDatos(json.datos);
+
+      const resCamiones = await fetch("/api/admin/camiones");
+      const jsonCamiones = await resCamiones.json();
+      const listaCamiones: Camion[] = jsonCamiones.camiones ?? [];
+      setCamiones(listaCamiones);
+
+      if (json.datos.matricula) {
+        const encontrado = listaCamiones.find(
+          (c) => c.matricula?.toLowerCase().trim() === json.datos.matricula.toLowerCase().trim()
+        );
+        if (encontrado) setCamionId(encontrado.id);
+      }
+    } catch {
+      setError("No se pudo procesar la imagen. Probá de nuevo.");
+    } finally {
+      setProcesando(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  }
+
+  function cerrar() {
+    setDatos(null);
+    setError("");
+    setCamionId("");
+    setGuardadoOk(false);
+  }
+
+  function actualizar<K extends keyof DatosIA>(campo: K, valor: DatosIA[K]) {
+    if (!datos) return;
+    setDatos({ ...datos, [campo]: valor });
+  }
+
+  async function confirmarGuardado() {
+    if (!datos) return;
+    setError("");
+    setGuardando(true);
+
+    try {
+      if (datos.tipo_documento === "documento_vehiculo") {
+        if (!camionId || !datos.tipo_documento_vehiculo || !datos.fecha_caducidad) {
+          setError("Faltan camión, tipo de documento o fecha de caducidad");
+          setGuardando(false);
+          return;
+        }
+        const res = await fetch("/api/admin/documentos", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            camion_id: camionId,
+            tipo: datos.tipo_documento_vehiculo,
+            fecha_emision: datos.fecha_emision,
+            fecha_caducidad: datos.fecha_caducidad,
+          }),
+        });
+        const json = await res.json();
+        if (json.error) {
+          setError(json.error);
+          setGuardando(false);
+          return;
+        }
+      } else {
+        const mapaTipo: Record<string, TipoFinanzasMovimiento> = {
+          factura_insumo: "gasto_insumo",
+          servicio_tercero: "gasto_servicio_tercero",
+          otro_gasto: "gasto_otro",
+        };
+        const tipoFinanzas = mapaTipo[datos.tipo_documento];
+        if (!tipoFinanzas || !datos.monto) {
+          setError("Faltan datos para registrar el gasto");
+          setGuardando(false);
+          return;
+        }
+        const res = await fetch("/api/admin/finanzas/movimientos", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tipo: tipoFinanzas,
+            camion_id: camionId || null,
+            producto_nombre_nuevo: tipoFinanzas === "gasto_insumo" ? datos.producto_nombre : null,
+            cantidad: datos.cantidad,
+            monto: datos.monto,
+            proveedor: datos.proveedor,
+            descripcion: datos.descripcion,
+            fecha: datos.fecha,
+          }),
+        });
+        const json = await res.json();
+        if (json.error) {
+          setError(json.error);
+          setGuardando(false);
+          return;
+        }
+      }
+
+      setGuardadoOk(true);
+      setGuardando(false);
+    } catch {
+      setError("No se pudo guardar. Probá de nuevo.");
+      setGuardando(false);
+    }
+  }
+
+  const LABELS_TIPO_DOC: Record<string, string> = {
+    factura_insumo: "Compra de insumo",
+    servicio_tercero: "Servicio de tercero",
+    documento_vehiculo: "Documento del vehículo",
+    otro_gasto: "Otro gasto",
+    no_reconocido: "No se pudo identificar",
+  };
+
+  return (
+    <>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={archivoSeleccionado}
+        className="hidden"
+      />
+
+      <button
+        onClick={abrirCamara}
+        className="fixed bottom-20 right-4 z-20 w-14 h-14 rounded-full bg-[var(--color-accent)] text-white shadow-lg flex items-center justify-center text-2xl active:scale-95 transition"
+        aria-label="Cargar documento con foto"
+      >
+        📷
+      </button>
+
+      {(procesando || datos || error) && (
+        <div className="fixed inset-0 z-40 flex items-end" onClick={procesando ? undefined : cerrar}>
+          <div className="absolute inset-0 bg-black/40" />
+          <div
+            className="relative bg-white w-full rounded-t-2xl p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] max-w-md mx-auto max-h-[85vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-10 h-1 bg-[var(--color-border)] rounded-full mx-auto mb-4" />
+
+            {procesando && (
+              <div className="text-center py-8">
+                <p className="text-2xl mb-2">🔎</p>
+                <p className="font-display font-semibold text-[var(--color-ink)]">Leyendo el documento...</p>
+                <p className="text-sm text-[var(--color-ink-soft)] mt-1">Puede tardar unos segundos</p>
+              </div>
+            )}
+
+            {!procesando && error && (
+              <div className="text-center py-6">
+                <p className="text-sm text-[var(--color-danger)] mb-4">{error}</p>
+                <button
+                  onClick={cerrar}
+                  className="w-full rounded-xl border border-[var(--color-border)] bg-white text-[var(--color-ink)] font-semibold py-2.5 active:scale-[0.98] transition"
+                >
+                  Cerrar
+                </button>
+              </div>
+            )}
+
+            {!procesando && !error && guardadoOk && (
+              <div className="text-center py-8">
+                <p className="text-2xl mb-2">✅</p>
+                <p className="font-display font-semibold text-[var(--color-ink)]">Guardado</p>
+                <button
+                  onClick={cerrar}
+                  className="w-full rounded-xl bg-[var(--color-accent)] text-white font-semibold py-2.5 mt-4 active:scale-[0.98] transition"
+                >
+                  Listo
+                </button>
+              </div>
+            )}
+
+            {!procesando && !error && !guardadoOk && datos && datos.tipo_documento === "no_reconocido" && (
+              <div className="text-center py-6">
+                <p className="text-sm text-[var(--color-ink-soft)] mb-4">
+                  No pude identificar el documento en la foto. Probá con más luz o más cerca.
+                </p>
+                <button
+                  onClick={cerrar}
+                  className="w-full rounded-xl border border-[var(--color-border)] bg-white text-[var(--color-ink)] font-semibold py-2.5 active:scale-[0.98] transition"
+                >
+                  Cerrar
+                </button>
+              </div>
+            )}
+
+            {!procesando && !error && !guardadoOk && datos && datos.tipo_documento !== "no_reconocido" && (
+              <div className="space-y-2">
+                <p className="font-display font-semibold text-[var(--color-ink)]">
+                  {LABELS_TIPO_DOC[datos.tipo_documento]}
+                </p>
+                <p className="text-xs text-[var(--color-ink-soft)] mb-2">
+                  Confianza de lectura: {datos.confianza}
+                  {datos.notas_ia ? ` · ${datos.notas_ia}` : ""}
+                </p>
+
+                <label className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Camión</label>
+                <select
+                  value={camionId}
+                  onChange={(e) => setCamionId(e.target.value)}
+                  className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px]"
+                >
+                  <option value="">General (sin camión específico)</option>
+                  {camiones.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.matricula || c.nombre}
+                    </option>
+                  ))}
+                </select>
+
+                {datos.tipo_documento === "documento_vehiculo" ? (
+                  <>
+                    <label className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Tipo</label>
+                    <select
+                      value={datos.tipo_documento_vehiculo ?? ""}
+                      onChange={(e) => actualizar("tipo_documento_vehiculo", e.target.value as DatosIA["tipo_documento_vehiculo"])}
+                      className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px]"
+                    >
+                      <option value="">Elegir...</option>
+                      <option value="seguro">Seguro</option>
+                      <option value="inspeccion_tecnica">Inspección técnica</option>
+                      <option value="carta_alquiler">Carta de alquiler</option>
+                    </select>
+
+                    <label className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Fecha de emisión</label>
+                    <input
+                      type="date"
+                      value={datos.fecha_emision ?? ""}
+                      onChange={(e) => actualizar("fecha_emision", e.target.value)}
+                      className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px]"
+                    />
+
+                    <label className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Fecha de caducidad</label>
+                    <input
+                      type="date"
+                      value={datos.fecha_caducidad ?? ""}
+                      onChange={(e) => actualizar("fecha_caducidad", e.target.value)}
+                      className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px]"
+                    />
+                  </>
+                ) : (
+                  <>
+                    {datos.tipo_documento === "factura_insumo" && (
+                      <>
+                        <label className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Producto</label>
+                        <input
+                          type="text"
+                          value={datos.producto_nombre ?? ""}
+                          onChange={(e) => actualizar("producto_nombre", e.target.value)}
+                          className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px]"
+                        />
+                        <label className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Cantidad</label>
+                        <input
+                          type="number"
+                          value={datos.cantidad ?? ""}
+                          onChange={(e) => actualizar("cantidad", parseFloat(e.target.value))}
+                          className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px]"
+                        />
+                      </>
+                    )}
+
+                    <label className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Proveedor</label>
+                    <input
+                      type="text"
+                      value={datos.proveedor ?? ""}
+                      onChange={(e) => actualizar("proveedor", e.target.value)}
+                      className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px]"
+                    />
+
+                    <label className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Monto</label>
+                    <input
+                      type="number"
+                      value={datos.monto ?? ""}
+                      onChange={(e) => actualizar("monto", parseFloat(e.target.value))}
+                      className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px]"
+                    />
+
+                    <label className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Fecha</label>
+                    <input
+                      type="date"
+                      value={datos.fecha ?? ""}
+                      onChange={(e) => actualizar("fecha", e.target.value)}
+                      className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px]"
+                    />
+
+                    <label className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Descripción</label>
+                    <input
+                      type="text"
+                      value={datos.descripcion ?? ""}
+                      onChange={(e) => actualizar("descripcion", e.target.value)}
+                      className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px]"
+                    />
+                  </>
+                )}
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    onClick={cerrar}
+                    className="rounded-xl border border-[var(--color-border)] bg-white text-[var(--color-ink)] px-3 py-2.5 font-semibold flex-1 active:scale-[0.98] transition"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={confirmarGuardado}
+                    disabled={guardando}
+                    className="rounded-xl bg-[var(--color-accent)] text-white px-3 py-2.5 font-semibold flex-1 active:scale-[0.98] transition disabled:opacity-40"
+                  >
+                    {guardando ? "Guardando..." : "Confirmar y guardar"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </>
   );
 }
