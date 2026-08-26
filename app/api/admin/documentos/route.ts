@@ -5,15 +5,21 @@ import { supabaseAdmin } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
-async function requiereSesion() {
+async function requiereSesionOApiKey(request: Request) {
+  const claveAutomatizacion = request.headers.get("x-automation-key");
+  if (claveAutomatizacion && claveAutomatizacion === process.env.AUTOMATION_API_KEY) {
+    return true;
+  }
+
   const cookieStore = await cookies();
   const token = cookieStore.get(NOMBRE_COOKIE)?.value;
-  return verificarSesion(token);
+  const sesion = await verificarSesion(token);
+  return !!sesion;
 }
 
 export async function GET(request: Request) {
-  const sesion = await requiereSesion();
-  if (!sesion) {
+  const autorizado = await requiereSesionOApiKey(request);
+  if (!autorizado) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
@@ -38,8 +44,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const sesion = await requiereSesion();
-  if (!sesion) {
+  const autorizado = await requiereSesionOApiKey(request);
+  if (!autorizado) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 

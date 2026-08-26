@@ -5,15 +5,21 @@ import { supabaseAdmin } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
-async function requiereSesion() {
+async function requiereSesionOApiKey(request: Request) {
+  const claveAutomatizacion = request.headers.get("x-automation-key");
+  if (claveAutomatizacion && claveAutomatizacion === process.env.AUTOMATION_API_KEY) {
+    return true;
+  }
+
   const cookieStore = await cookies();
   const token = cookieStore.get(NOMBRE_COOKIE)?.value;
-  return verificarSesion(token);
+  const sesion = await verificarSesion(token);
+  return !!sesion;
 }
 
 export async function GET(request: Request) {
-  const sesion = await requiereSesion();
-  if (!sesion) {
+  const autorizado = await requiereSesionOApiKey(request);
+  if (!autorizado) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
@@ -35,8 +41,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const sesion = await requiereSesion();
-  if (!sesion) {
+  const autorizado = await requiereSesionOApiKey(request);
+  if (!autorizado) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
@@ -65,9 +71,6 @@ export async function POST(request: Request) {
   let mantenimiento_id: string | null = null;
   let producto_id = producto_id_recibido || null;
 
-  // --- Compra de insumos: crea el producto si es nuevo, y actualiza stock
-  // usando costo PROMEDIO PONDERADO (no reemplaza el precio, lo promedia
-  // según lo que ya había en stock + lo nuevo que entra) ---
   if (tipo === "gasto_insumo") {
     if (!cantidad) {
       return NextResponse.json({ error: "Falta la cantidad" }, { status: 400 });
@@ -79,7 +82,6 @@ export async function POST(request: Request) {
     const precioCompraUnitario = cantidad > 0 ? monto / cantidad : 0;
 
     if (!producto_id && producto_nombre_nuevo) {
-      // Producto nuevo: se crea directo con el precio de esta compra.
       const { data: nuevoProducto, error: errorCrear } = await supabaseAdmin
         .from("productos")
         .insert({
@@ -96,9 +98,6 @@ export async function POST(request: Request) {
       }
       producto_id = nuevoProducto.id;
     } else if (producto_id) {
-      // Producto existente: promedio ponderado entre lo que ya había en
-      // stock (a su precio actual) y lo que entra ahora (a su precio de
-      // compra), para que el precio del inventario sea un promedio real.
       const { data: producto } = await supabaseAdmin
         .from("productos")
         .select("stock_actual, precio_unitario")
@@ -118,7 +117,6 @@ export async function POST(request: Request) {
     }
   }
 
-  // --- Servicio de tercero: genera el registro en Mantenimientos ---
   if (tipo === "gasto_servicio_tercero") {
     if (!camion_id) {
       return NextResponse.json({ error: "Falta camion_id" }, { status: 400 });
@@ -141,7 +139,6 @@ export async function POST(request: Request) {
     mantenimiento_id = mantenimiento?.id ?? null;
   }
 
-  // --- Si se indicó un submayor, debitamos el Mayor de Provisión de ese camión ---
   if (submayor && camion_id) {
     await supabaseAdmin.from("mayor_provision").insert({
       camion_id,
