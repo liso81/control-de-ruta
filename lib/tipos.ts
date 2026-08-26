@@ -204,3 +204,77 @@ export interface SaldoSubmayor {
   submayor: Submayor;
   saldo: number;
 }
+
+export type TipoFinanzasMovimiento =
+  | "capital_inyectado"
+  | "gasto_insumo"
+  | "gasto_servicio_tercero"
+  | "gasto_otro"
+  | "fondo_extraido";
+
+export interface FinanzasMovimiento {
+  id: string;
+  tipo: TipoFinanzasMovimiento;
+  camion_id: string | null;
+  producto_id: string | null;
+  cantidad: number | null;
+  monto: number;
+  proveedor: string | null;
+  descripcion: string | null;
+  fecha: string;
+  mantenimiento_id: string | null;
+  created_at: string;
+}
+
+export interface PasoFlujoCaja {
+  capitalInyectado: number;
+  ingresosEfectivoTransferencia: number;
+  ingresosCuentasCobradas: number;
+  ingresosTotal: number;
+  gastosInsumos: number;
+  gastosServiciosTerceros: number;
+  gastosOtros: number;
+  gastosChofer: number;
+  gastosTotal: number;
+  utilidadBruta: number;
+  provision: number;
+  utilidadReal: number;
+  efectivoAOperar: number;
+  fondoExtraido: number;
+  efectivoRealAOperar: number;
+}
+
+export interface ResumenFinanzas {
+  diario: PasoFlujoCaja;
+  acumulado: PasoFlujoCaja;
+}
+
+export interface ComparativoCamion {
+  camion_id: string;
+  camion_nombre: string;
+  camion_matricula: string | null;
+  ingresos: number;
+  gastos: number;
+  utilidad: number;
+  litrosVendidos: number;
+  utilidadPorLitro: number;
+}
+
+export interface PuntoTendencia {
+  fecha: string;
+  utilidadDia: number;
+  utilidadAcumulada: number;
+}
+
+export interface ComposicionGastos {
+  insumos: number;
+  serviciosTerceros: number;
+  otros: number;
+  gastosChofer: number;
+}
+
+export interface GraficosFinanzas {
+  comparativoPorCamion: ComparativoCamion[];
+  tendencia: PuntoTendencia[];
+  composicionGastos: ComposicionGastos;
+}

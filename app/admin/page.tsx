@@ -1,6 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
 import type {
   Camion,
   Turno,
@@ -17,7 +32,11 @@ import type {
   AlertaCuentaPorCobrar,
   DatosProvisionFondos,
   SaldoSubmayor,
+  ResumenFinanzas,
+  GraficosFinanzas,
+  TipoFinanzasMovimiento,
 } from "@/lib/tipos";
+import { SUBMAYORES_PROVISION } from "@/lib/tipos";
 
 export default function AdminPage() {
   const [cargando, setCargando] = useState(true);
@@ -105,7 +124,14 @@ function PantallaLogin({ onLogin }: { onLogin: () => void }) {
 
 function PanelAdmin() {
   const [tab, setTab] = useState<
-    "reportes" | "vehiculos" | "operaciones" | "mantenimientos" | "inventario" | "cxc" | "provision"
+    | "reportes"
+    | "vehiculos"
+    | "operaciones"
+    | "mantenimientos"
+    | "inventario"
+    | "cxc"
+    | "provision"
+    | "finanzas"
   >("reportes");
 
   async function cerrarSesion() {
@@ -121,6 +147,7 @@ function PanelAdmin() {
     { id: "inventario", label: "Invent." },
     { id: "cxc", label: "Cuentas x Cobrar" },
     { id: "provision", label: "Provisión de Fondos" },
+    { id: "finanzas", label: "Finanzas" },
   ];
 
   return (
@@ -151,6 +178,7 @@ function PanelAdmin() {
       {tab === "inventario" && <PanelInventario />}
       {tab === "cxc" && <PanelCuentasPorCobrar />}
       {tab === "provision" && <PanelProvisionFondos />}
+      {tab === "finanzas" && <PanelFinanzas />}
     </main>
   );
 }
@@ -2010,6 +2038,392 @@ function FormularioProvision({ camion, onVolver }: { camion: Camion; onVolver: (
       </button>
       </>
       )}
+    </div>
+  );
+}
+
+/* ================= FINANZAS ================= */
+
+const COLORES_TORTA = ["#000000", "#666666", "#999999", "#cccccc"];
+
+const LABELS_TIPO_FINANZAS: Record<TipoFinanzasMovimiento, string> = {
+  capital_inyectado: "Capital inyectado",
+  gasto_insumo: "Compra de insumos",
+  gasto_servicio_tercero: "Servicio de tercero",
+  gasto_otro: "Otro gasto",
+  fondo_extraido: "Fondo extraído",
+};
+
+function FilaFlujo({ label, valor, negrita, negativo }: { label: string; valor: number; negrita?: boolean; negativo?: boolean }) {
+  return (
+    <div className={`flex justify-between border-b pb-1 ${negrita ? "font-bold" : ""}`}>
+      <span>{label}</span>
+      <span className={negativo ? "text-red-600" : ""}>
+        {negativo ? "-" : ""}
+        {Math.abs(valor).toFixed(2)}
+      </span>
+    </div>
+  );
+}
+
+function PanelFinanzas() {
+  const [resumen, setResumen] = useState<ResumenFinanzas | null>(null);
+  const [graficos, setGraficos] = useState<GraficosFinanzas | null>(null);
+  const [modo, setModo] = useState<"diario" | "acumulado">("acumulado");
+  const [cargando, setCargando] = useState(true);
+  const [camiones, setCamiones] = useState<Camion[]>([]);
+  const [productos, setProductos] = useState<Producto[]>([]);
+
+  // Formulario de registro
+  const [tipo, setTipo] = useState<TipoFinanzasMovimiento>("capital_inyectado");
+  const [camionId, setCamionId] = useState("");
+  const [productoId, setProductoId] = useState("");
+  const [cantidad, setCantidad] = useState("");
+  const [monto, setMonto] = useState("");
+  const [proveedor, setProveedor] = useState("");
+  const [descripcion, setDescripcion] = useState("");
+  const [submayor, setSubmayor] = useState("");
+  const [tipoMantenimiento, setTipoMantenimiento] = useState(TIPOS_MANTENIMIENTO[0]);
+  const [error, setError] = useState("");
+  const [guardando, setGuardando] = useState(false);
+
+  useEffect(() => {
+    cargarTodo();
+  }, []);
+
+  async function cargarTodo() {
+    setCargando(true);
+    const [resResumen, resGraficos, resCamiones, resProductos] = await Promise.all([
+      fetch("/api/admin/finanzas/resumen"),
+      fetch("/api/admin/finanzas/graficos"),
+      fetch("/api/admin/camiones"),
+      fetch("/api/admin/productos"),
+    ]);
+    setResumen(await resResumen.json());
+    setGraficos(await resGraficos.json());
+    const jsonCamiones = await resCamiones.json();
+    setCamiones(jsonCamiones.camiones ?? []);
+    const jsonProductos = await resProductos.json();
+    setProductos(jsonProductos.productos ?? []);
+    setCargando(false);
+  }
+
+  async function registrar() {
+    setError("");
+    if (!monto) {
+      setError("Falta el monto");
+      return;
+    }
+    setGuardando(true);
+    const res = await fetch("/api/admin/finanzas/movimientos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        tipo,
+        camion_id: camionId || null,
+        producto_id: productoId || null,
+        cantidad: cantidad ? parseFloat(cantidad) : null,
+        monto: parseFloat(monto),
+        proveedor: proveedor.trim() || null,
+        descripcion: descripcion.trim() || null,
+        submayor: submayor || null,
+        tipo_mantenimiento: tipo === "gasto_servicio_tercero" ? tipoMantenimiento : null,
+      }),
+    });
+    const json = await res.json();
+    setGuardando(false);
+    if (json.error) {
+      setError(json.error);
+      return;
+    }
+    setCamionId("");
+    setProductoId("");
+    setCantidad("");
+    setMonto("");
+    setProveedor("");
+    setDescripcion("");
+    setSubmayor("");
+    await cargarTodo();
+  }
+
+  if (cargando || !resumen || !graficos) {
+    return <p className="text-gray-500">Cargando...</p>;
+  }
+
+  const paso = resumen[modo];
+
+  const datosFlujo = [
+    { name: "Capital", value: paso.capitalInyectado },
+    { name: "Ingresos", value: paso.ingresosTotal },
+    { name: "Gastos", value: -paso.gastosTotal },
+    { name: "Ut. bruta", value: paso.utilidadBruta },
+    { name: "Provisión", value: -paso.provision },
+    { name: "Ut. real", value: paso.utilidadReal },
+    { name: "Efec. operar", value: paso.efectivoAOperar },
+    { name: "Fondo extr.", value: -paso.fondoExtraido },
+    { name: "Efec. real", value: paso.efectivoRealAOperar },
+  ];
+
+  const datosTorta = [
+    { name: "Insumos", value: graficos.composicionGastos.insumos },
+    { name: "Serv. terceros", value: graficos.composicionGastos.serviciosTerceros },
+    { name: "Otros", value: graficos.composicionGastos.otros },
+    { name: "Gastos chofer", value: graficos.composicionGastos.gastosChofer },
+  ].filter((d) => d.value > 0);
+
+  const margen = paso.ingresosTotal > 0 ? (paso.utilidadReal / paso.ingresosTotal) * 100 : 0;
+
+  return (
+    <div>
+      <h2 className="font-semibold mb-2">Finanzas</h2>
+
+      <div className="flex gap-2 mb-3">
+        <button
+          onClick={() => setModo("diario")}
+          className={`border rounded-lg px-3 py-1 text-sm font-semibold ${modo === "diario" ? "bg-black text-white" : ""}`}
+        >
+          Hoy
+        </button>
+        <button
+          onClick={() => setModo("acumulado")}
+          className={`border rounded-lg px-3 py-1 text-sm font-semibold ${modo === "acumulado" ? "bg-black text-white" : ""}`}
+        >
+          Acumulado
+        </button>
+      </div>
+
+      {/* Tarjetas resumen */}
+      <div className="grid grid-cols-2 gap-2 mb-4">
+        <div className={`border rounded-lg p-3 ${paso.utilidadReal >= 0 ? "bg-green-50 border-green-400" : "bg-red-50 border-red-400"}`}>
+          <p className="text-xs text-gray-500">Utilidad real</p>
+          <p className={`font-bold text-lg ${paso.utilidadReal >= 0 ? "text-green-700" : "text-red-700"}`}>
+            {paso.utilidadReal.toFixed(2)}
+          </p>
+        </div>
+        <div className="border rounded-lg p-3">
+          <p className="text-xs text-gray-500">Margen</p>
+          <p className="font-bold text-lg">{margen.toFixed(1)}%</p>
+        </div>
+        <div className="border rounded-lg p-3">
+          <p className="text-xs text-gray-500">Efectivo real a operar</p>
+          <p className="font-bold text-lg">{paso.efectivoRealAOperar.toFixed(2)}</p>
+        </div>
+        <div className="border rounded-lg p-3">
+          <p className="text-xs text-gray-500">Ingresos</p>
+          <p className="font-bold text-lg">{paso.ingresosTotal.toFixed(2)}</p>
+        </div>
+      </div>
+
+      {/* Flujo completo de 9 pasos */}
+      <div className="border rounded-lg p-3 mb-4 space-y-1">
+        <p className="font-semibold text-sm mb-2">Flujo de caja ({modo})</p>
+        <FilaFlujo label="1. Capital inyectado" valor={paso.capitalInyectado} />
+        <FilaFlujo label="2. Ingresos (efec.+transf.)" valor={paso.ingresosEfectivoTransferencia} />
+        <FilaFlujo label="   Ingresos (cxc cobradas)" valor={paso.ingresosCuentasCobradas} />
+        <FilaFlujo label="3. Gastos" valor={paso.gastosTotal} negativo />
+        <FilaFlujo label="4. Utilidad bruta" valor={paso.utilidadBruta} negrita />
+        <FilaFlujo label="5. Provisión" valor={paso.provision} negativo />
+        <FilaFlujo label="6. Utilidad real" valor={paso.utilidadReal} negrita />
+        <FilaFlujo label="7. Efectivo a operar" valor={paso.efectivoAOperar} negrita />
+        <FilaFlujo label="8. Fondo extraído" valor={paso.fondoExtraido} negativo />
+        <FilaFlujo label="9. Efectivo real a operar" valor={paso.efectivoRealAOperar} negrita />
+      </div>
+
+      {/* Gráfico de flujo */}
+      <div className="border rounded-lg p-3 mb-4">
+        <p className="font-semibold text-sm mb-2">Gráfico del flujo de caja</p>
+        <ResponsiveContainer width="100%" height={220}>
+          <BarChart data={datosFlujo}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="name" tick={{ fontSize: 9 }} interval={0} angle={-30} textAnchor="end" height={60} />
+            <YAxis tick={{ fontSize: 10 }} />
+            <Tooltip />
+            <Bar dataKey="value">
+              {datosFlujo.map((d, i) => (
+                <Cell key={i} fill={d.value >= 0 ? "#16a34a" : "#dc2626"} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Comparativo por camión */}
+      {graficos.comparativoPorCamion.length > 0 && (
+        <div className="border rounded-lg p-3 mb-4">
+          <p className="font-semibold text-sm mb-2">Comparativo por camión</p>
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={graficos.comparativoPorCamion.map((c) => ({ name: c.camion_matricula || c.camion_nombre, Ingresos: c.ingresos, Gastos: c.gastos, Utilidad: c.utilidad }))}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+              <YAxis tick={{ fontSize: 10 }} />
+              <Tooltip />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Bar dataKey="Ingresos" fill="#16a34a" />
+              <Bar dataKey="Gastos" fill="#dc2626" />
+              <Bar dataKey="Utilidad" fill="#000000" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* Ranking de rentabilidad */}
+      {graficos.comparativoPorCamion.length > 0 && (
+        <div className="border rounded-lg p-3 mb-4">
+          <p className="font-semibold text-sm mb-2">Ranking de rentabilidad (por litro vendido)</p>
+          <div className="space-y-1">
+            {graficos.comparativoPorCamion.map((c, i) => (
+              <div key={c.camion_id} className="flex justify-between text-sm">
+                <span>
+                  {i + 1}. {c.camion_matricula || c.camion_nombre}
+                </span>
+                <span className={c.utilidadPorLitro >= 0 ? "text-green-700" : "text-red-700"}>
+                  {c.utilidadPorLitro >= 0 ? "Gana" : "Pierde"} {Math.abs(c.utilidadPorLitro).toFixed(2)} / L
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Tendencia acumulada */}
+      <div className="border rounded-lg p-3 mb-4">
+        <p className="font-semibold text-sm mb-2">Tendencia (últimos 30 días)</p>
+        <ResponsiveContainer width="100%" height={220}>
+          <LineChart data={graficos.tendencia}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="fecha" tick={{ fontSize: 8 }} interval={4} />
+            <YAxis tick={{ fontSize: 10 }} />
+            <Tooltip />
+            <Line type="monotone" dataKey="utilidadAcumulada" stroke="#000000" strokeWidth={2} dot={false} name="Utilidad acumulada" />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Composición de gastos */}
+      {datosTorta.length > 0 && (
+        <div className="border rounded-lg p-3 mb-4">
+          <p className="font-semibold text-sm mb-2">Composición de gastos (histórico)</p>
+          <ResponsiveContainer width="100%" height={220}>
+            <PieChart>
+              <Pie data={datosTorta} dataKey="value" nameKey="name" outerRadius={70} label={{ fontSize: 10 }}>
+                {datosTorta.map((_, i) => (
+                  <Cell key={i} fill={COLORES_TORTA[i % COLORES_TORTA.length]} />
+                ))}
+              </Pie>
+              <Tooltip />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* Registrar movimiento */}
+      <div className="border rounded-lg p-3 mb-4 space-y-2">
+        <p className="font-semibold text-sm">Registrar movimiento</p>
+
+        <p className="text-xs text-gray-500">Tipo</p>
+        <select
+          value={tipo}
+          onChange={(e) => setTipo(e.target.value as TipoFinanzasMovimiento)}
+          className="border rounded-lg p-2 w-full"
+        >
+          {Object.entries(LABELS_TIPO_FINANZAS).map(([id, label]) => (
+            <option key={id} value={id}>
+              {label}
+            </option>
+          ))}
+        </select>
+
+        {(tipo === "gasto_servicio_tercero" || tipo === "gasto_otro" || tipo === "capital_inyectado") && (
+          <>
+            <p className="text-xs text-gray-500">Camión (opcional si es general)</p>
+            <select value={camionId} onChange={(e) => setCamionId(e.target.value)} className="border rounded-lg p-2 w-full">
+              <option value="">General (no es de un camión específico)</option>
+              {camiones.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.matricula || c.nombre}
+                </option>
+              ))}
+            </select>
+          </>
+        )}
+
+        {tipo === "gasto_insumo" && (
+          <>
+            <p className="text-xs text-gray-500">Producto</p>
+            <select value={productoId} onChange={(e) => setProductoId(e.target.value)} className="border rounded-lg p-2 w-full">
+              <option value="">Elegir producto</option>
+              {productos.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nombre}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500">Cantidad comprada</p>
+            <input
+              type="number"
+              value={cantidad}
+              onChange={(e) => setCantidad(e.target.value)}
+              className="border rounded-lg p-2 w-full"
+            />
+          </>
+        )}
+
+        {tipo === "gasto_servicio_tercero" && (
+          <>
+            <p className="text-xs text-gray-500">Tipo de mantenimiento</p>
+            <select
+              value={tipoMantenimiento}
+              onChange={(e) => setTipoMantenimiento(e.target.value)}
+              className="border rounded-lg p-2 w-full"
+            >
+              {TIPOS_MANTENIMIENTO.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500">Proveedor / taller</p>
+            <input
+              type="text"
+              value={proveedor}
+              onChange={(e) => setProveedor(e.target.value)}
+              className="border rounded-lg p-2 w-full"
+            />
+          </>
+        )}
+
+        {(tipo === "gasto_servicio_tercero" || tipo === "gasto_otro") && (
+          <>
+            <p className="text-xs text-gray-500">Debitar de la Provisión (opcional)</p>
+            <select value={submayor} onChange={(e) => setSubmayor(e.target.value)} className="border rounded-lg p-2 w-full">
+              <option value="">No debitar de la provisión</option>
+              {SUBMAYORES_PROVISION.map((s) => (
+                <option key={s} value={s}>
+                  {s.replace(/_/g, " ")}
+                </option>
+              ))}
+            </select>
+          </>
+        )}
+
+        <p className="text-xs text-gray-500">Monto</p>
+        <input type="number" value={monto} onChange={(e) => setMonto(e.target.value)} className="border rounded-lg p-2 w-full" />
+
+        <p className="text-xs text-gray-500">Descripción / observaciones</p>
+        <input
+          type="text"
+          value={descripcion}
+          onChange={(e) => setDescripcion(e.target.value)}
+          className="border rounded-lg p-2 w-full"
+        />
+
+        {error && <p className="text-red-600 text-sm">{error}</p>}
+
+        <button onClick={registrar} disabled={guardando} className="border rounded-lg p-2 w-full font-semibold">
+          {guardando ? "Guardando..." : "Registrar"}
+        </button>
+      </div>
     </div>
   );
 }
