@@ -278,3 +278,27 @@ export interface GraficosFinanzas {
   tendencia: PuntoTendencia[];
   composicionGastos: ComposicionGastos;
 }
+
+export type MotivoParalizacion = "En taller" | "Sin chofer" | "Esperando repuesto" | "Otro";
+
+export interface Paralizacion {
+  id: string;
+  camion_id: string;
+  motivo: MotivoParalizacion;
+  fecha_inicio: string;
+  fecha_fin: string | null;
+  notas: string | null;
+  created_at: string;
+}
+
+export interface AlertaParalizacion {
+  id: string;
+  camion_id: string;
+  camion_nombre: string;
+  camion_matricula: string | null;
+  motivo: MotivoParalizacion;
+  fecha_inicio: string;
+  diasParado: number;
+  utilidadDiariaPromedio: number;
+  costoEstimado: number;
+}

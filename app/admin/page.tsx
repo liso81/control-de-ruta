@@ -35,6 +35,9 @@ import type {
   ResumenFinanzas,
   GraficosFinanzas,
   TipoFinanzasMovimiento,
+  MotivoParalizacion,
+  Paralizacion,
+  AlertaParalizacion,
 } from "@/lib/tipos";
 import { SUBMAYORES_PROVISION } from "@/lib/tipos";
 
@@ -278,6 +281,7 @@ function PanelVehiculos() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
   const [camionDocumentos, setCamionDocumentos] = useState<Camion | null>(null);
+  const [camionParalizaciones, setCamionParalizaciones] = useState<Camion | null>(null);
 
   const [nombreNuevo, setNombreNuevo] = useState("");
   const [capacidadNueva, setCapacidadNueva] = useState("");
@@ -381,6 +385,10 @@ function PanelVehiculos() {
     return <DetalleDocumentos camion={camionDocumentos} onVolver={() => setCamionDocumentos(null)} />;
   }
 
+  if (camionParalizaciones) {
+    return <DetalleParalizaciones camion={camionParalizaciones} onVolver={() => setCamionParalizaciones(null)} />;
+  }
+
   return (
     <div>
       <h2 className="font-display font-semibold mb-2 text-[var(--color-ink)]">Vehículos</h2>
@@ -473,6 +481,9 @@ function PanelVehiculos() {
                   </button>
                   <button onClick={() => setCamionDocumentos(c)} className="text-xs font-medium rounded-lg border border-[var(--color-border)] px-2.5 py-1.5 active:scale-95 transition">
                     Documentos
+                  </button>
+                  <button onClick={() => setCamionParalizaciones(c)} className="text-xs font-medium rounded-lg border border-[var(--color-border)] px-2.5 py-1.5 active:scale-95 transition">
+                    Paralizaciones
                   </button>
                 </div>
               </div>
@@ -1564,6 +1575,7 @@ function PanelReportes() {
   const [alertasMantenimiento, setAlertasMantenimiento] = useState<AlertaMantenimientoReporte[]>([]);
   const [alertasDocumentos, setAlertasDocumentos] = useState<AlertaDocumento[]>([]);
   const [alertasCxC, setAlertasCxC] = useState<AlertaCuentaPorCobrar[]>([]);
+  const [alertasParalizaciones, setAlertasParalizaciones] = useState<AlertaParalizacion[]>([]);
   const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
@@ -1577,13 +1589,18 @@ function PanelReportes() {
     setAlertasMantenimiento(json.alertasMantenimiento ?? []);
     setAlertasDocumentos(json.alertasDocumentos ?? []);
     setAlertasCxC(json.alertasCuentasPorCobrar ?? []);
+    setAlertasParalizaciones(json.alertasParalizaciones ?? []);
     setCargando(false);
   }
 
   const colores: Record<string, string> = { proximo: "text-[var(--color-warn)] bg-[var(--color-warn-soft)] border-[var(--color-warn)]", vencido: "text-[var(--color-danger)] bg-[var(--color-danger-soft)] border-[var(--color-danger)]" };
   const iconos: Record<string, string> = { proximo: "⚡", vencido: "⚠️" };
 
-  const sinAlertas = alertasMantenimiento.length === 0 && alertasDocumentos.length === 0 && alertasCxC.length === 0;
+  const sinAlertas =
+    alertasMantenimiento.length === 0 &&
+    alertasDocumentos.length === 0 &&
+    alertasCxC.length === 0 &&
+    alertasParalizaciones.length === 0;
 
   return (
     <div>
@@ -1594,6 +1611,28 @@ function PanelReportes() {
         <p className="text-[var(--color-ok)] bg-[var(--color-ok-soft)] border border-[var(--color-ok)] rounded-lg p-3">
           ✅ Todo al día. No hay alertas de mantenimiento ni documentos por vencer.
         </p>
+      )}
+
+      {alertasParalizaciones.length > 0 && (
+        <div className="mb-4">
+          <h3 className="font-display font-semibold text-sm mb-2 text-[var(--color-ink)]">Paralizaciones activas</h3>
+          <div className="space-y-2">
+            {alertasParalizaciones.map((a) => (
+              <div key={a.id} className="rounded-2xl shadow-sm p-4 border text-[var(--color-danger)] bg-[var(--color-danger-soft)] border-[var(--color-danger)]">
+                <p className="font-semibold text-sm">
+                  ⚠️ {a.camion_matricula || a.camion_nombre} — {a.motivo}
+                </p>
+                <p className="text-sm">
+                  {a.diasParado} día{a.diasParado === 1 ? "" : "s"} parado desde {a.fecha_inicio}
+                </p>
+                <p className="text-sm font-semibold">
+                  Representa ≈ {a.costoEstimado.toFixed(2)} en utilidad no generada
+                  {a.utilidadDiariaPromedio > 0 ? ` (${a.utilidadDiariaPromedio.toFixed(2)}/día promedio)` : ""}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       {alertasCxC.length > 0 && (
@@ -2557,6 +2596,157 @@ function PanelFinanzas() {
         <button onClick={registrar} disabled={guardando} className="w-full rounded-xl bg-[var(--color-accent)] text-white font-semibold py-2.5 active:scale-[0.98] transition">
           {guardando ? "Guardando..." : "Registrar"}
         </button>
+      </div>
+    </div>
+  );
+}
+
+/* ================= PARALIZACIONES ================= */
+
+const MOTIVOS_PARALIZACION: MotivoParalizacion[] = ["En taller", "Sin chofer", "Esperando repuesto", "Otro"];
+
+function DetalleParalizaciones({ camion, onVolver }: { camion: Camion; onVolver: () => void }) {
+  const [paralizaciones, setParalizaciones] = useState<Paralizacion[]>([]);
+  const [utilidadDiariaPromedio, setUtilidadDiariaPromedio] = useState(0);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState("");
+
+  const [motivo, setMotivo] = useState<MotivoParalizacion>("En taller");
+  const [fechaInicio, setFechaInicio] = useState(new Date().toISOString().slice(0, 10));
+  const [notas, setNotas] = useState("");
+
+  useEffect(() => {
+    cargarDatos();
+  }, []);
+
+  async function cargarDatos() {
+    setCargando(true);
+    const res = await fetch(`/api/admin/paralizaciones?camion_id=${camion.id}`);
+    const json = await res.json();
+    setParalizaciones(json.paralizaciones ?? []);
+    setUtilidadDiariaPromedio(json.utilidadDiariaPromedio ?? 0);
+    setCargando(false);
+  }
+
+  const activa = paralizaciones.find((p) => !p.fecha_fin);
+
+  async function iniciarParalizacion() {
+    setError("");
+    const res = await fetch("/api/admin/paralizaciones", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ camion_id: camion.id, motivo, fecha_inicio: fechaInicio, notas: notas.trim() || null }),
+    });
+    const json = await res.json();
+    if (json.error) {
+      setError(json.error);
+      return;
+    }
+    setNotas("");
+    await cargarDatos();
+  }
+
+  async function finalizarParalizacion(id: string) {
+    await fetch(`/api/admin/paralizaciones/${id}`, { method: "PATCH" });
+    await cargarDatos();
+  }
+
+  function diasDesde(fecha: string) {
+    const hoy = new Date();
+    const inicio = new Date(fecha);
+    return Math.max(1, Math.round((hoy.getTime() - inicio.getTime()) / (1000 * 60 * 60 * 24)));
+  }
+
+  return (
+    <div>
+      <button onClick={onVolver} className="text-sm mb-3 text-[var(--color-ink-soft)]">
+        ← Volver a vehículos
+      </button>
+      <h2 className="font-display font-semibold mb-1 text-[var(--color-ink)]">{camion.matricula || camion.nombre}</h2>
+      <p className="text-sm text-[var(--color-ink-soft)] mb-3">
+        {camion.nombre} · Utilidad diaria promedio (30 días): <strong>{utilidadDiariaPromedio.toFixed(2)}</strong>
+      </p>
+
+      {cargando && <p className="text-[var(--color-ink-soft)]">Cargando...</p>}
+
+      {activa && (
+        <div className="rounded-2xl shadow-sm p-4 border border-[var(--color-danger)] bg-[var(--color-danger-soft)] mb-4">
+          <p className="font-semibold text-sm text-[var(--color-danger)]">🔴 Parado ahora — {activa.motivo}</p>
+          <p className="text-sm text-[var(--color-danger)]">
+            {diasDesde(activa.fecha_inicio)} día{diasDesde(activa.fecha_inicio) === 1 ? "" : "s"} desde {activa.fecha_inicio}
+          </p>
+          <p className="text-sm font-semibold text-[var(--color-danger)]">
+            ≈ {(diasDesde(activa.fecha_inicio) * utilidadDiariaPromedio).toFixed(2)} en utilidad no generada
+          </p>
+          <button
+            onClick={() => finalizarParalizacion(activa.id)}
+            className="w-full rounded-xl bg-[var(--color-accent)] text-white font-semibold py-2.5 mt-3 active:scale-[0.98] transition"
+          >
+            Marcar como resuelto (vuelve a operar hoy)
+          </button>
+        </div>
+      )}
+
+      {!activa && (
+        <div className="bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4 mb-4 space-y-2">
+          <p className="font-display font-semibold text-sm text-[var(--color-ink)]">Registrar paralización</p>
+
+          <label className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Motivo</label>
+          <select
+            value={motivo}
+            onChange={(e) => setMotivo(e.target.value as MotivoParalizacion)}
+            className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px]"
+          >
+            {MOTIVOS_PARALIZACION.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </select>
+
+          <label className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Fecha de inicio</label>
+          <input
+            type="date"
+            value={fechaInicio}
+            onChange={(e) => setFechaInicio(e.target.value)}
+            className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px]"
+          />
+
+          <label className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Notas (opcional)</label>
+          <input
+            type="text"
+            value={notas}
+            onChange={(e) => setNotas(e.target.value)}
+            className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px]"
+          />
+
+          {error && <p className="text-sm text-[var(--color-danger)]">{error}</p>}
+
+          <button
+            onClick={iniciarParalizacion}
+            className="w-full rounded-xl bg-[var(--color-danger)] text-white font-semibold py-2.5 active:scale-[0.98] transition"
+          >
+            Registrar paralización
+          </button>
+        </div>
+      )}
+
+      <h3 className="font-display font-semibold text-sm mb-1 text-[var(--color-ink)]">Historial</h3>
+      <div className="space-y-2">
+        {paralizaciones
+          .filter((p) => p.fecha_fin)
+          .map((p) => (
+            <div key={p.id} className="bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4 text-sm">
+              <p className="font-semibold text-[var(--color-ink)]">{p.motivo}</p>
+              <p className="text-[var(--color-ink-soft)]">
+                {p.fecha_inicio} → {p.fecha_fin}
+              </p>
+              {p.notas && <p className="text-[var(--color-ink-soft)]">{p.notas}</p>}
+            </div>
+          ))}
+        {!cargando && paralizaciones.filter((p) => p.fecha_fin).length === 0 && (
+          <p className="text-[var(--color-ink-soft)]">Sin paralizaciones resueltas todavía.</p>
+        )}
       </div>
     </div>
   );

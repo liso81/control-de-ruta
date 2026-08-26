@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { verificarSesion, NOMBRE_COOKIE } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import type { TipoDocumento } from "@/lib/tipos";
+import { calcularUtilidadDiariaPromedio } from "../paralizaciones/route";
 
 export const dynamic = "force-dynamic";
 
@@ -130,6 +131,39 @@ export async function GET() {
   alertasMantenimiento.sort((a, b) => orden[a.estado] - orden[b.estado]);
   alertasDocumentos.sort((a, b) => orden[a.estado] - orden[b.estado]);
 
+  // --- Paralizaciones activas: cuánto representa cada una en utilidad no
+  // generada, usando el promedio diario de los últimos 30 días de ese camión ---
+  const alertasParalizaciones = [];
+  for (const camion of camiones ?? []) {
+    const { data: paralizacionesActivas } = await supabaseAdmin
+      .from("paralizaciones")
+      .select("*")
+      .eq("camion_id", camion.id)
+      .is("fecha_fin", null);
+
+    for (const p of paralizacionesActivas ?? []) {
+      const hoy = new Date();
+      const inicio = new Date(p.fecha_inicio);
+      const diasParado = Math.max(1, Math.round((hoy.getTime() - inicio.getTime()) / (1000 * 60 * 60 * 24)));
+      const utilidadDiariaPromedio = await calcularUtilidadDiariaPromedio(camion.id);
+      const costoEstimado = diasParado * utilidadDiariaPromedio;
+
+      alertasParalizaciones.push({
+        id: p.id,
+        camion_id: camion.id,
+        camion_nombre: camion.nombre,
+        camion_matricula: camion.matricula,
+        motivo: p.motivo,
+        fecha_inicio: p.fecha_inicio,
+        diasParado,
+        utilidadDiariaPromedio,
+        costoEstimado,
+      });
+    }
+  }
+
+  alertasParalizaciones.sort((a, b) => b.diasParado - a.diasParado);
+
   // --- Cuentas por cobrar envejecidas ---
   const { data: cuentasPendientes } = await supabaseAdmin
     .from("cuentas_por_cobrar")
@@ -160,5 +194,5 @@ export async function GET() {
 
   alertasCuentasPorCobrar.sort((a, b) => b.dias_antiguedad - a.dias_antiguedad);
 
-  return NextResponse.json({ alertasMantenimiento, alertasDocumentos, alertasCuentasPorCobrar });
+  return NextResponse.json({ alertasMantenimiento, alertasDocumentos, alertasCuentasPorCobrar, alertasParalizaciones });
 }
