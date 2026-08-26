@@ -279,7 +279,7 @@ export interface GraficosFinanzas {
   composicionGastos: ComposicionGastos;
 }
 
-export type MotivoParalizacion = "En taller" | "Sin chofer" | "Esperando repuesto" | "Otro";
+export type MotivoParalizacion = "En taller" | "Sin chofer" | "Esperando repuesto" | "Sin actividad" | "Otro";
 
 export interface Paralizacion {
   id: string;
