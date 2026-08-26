@@ -2078,6 +2078,8 @@ function PanelFinanzas() {
   const [tipo, setTipo] = useState<TipoFinanzasMovimiento>("capital_inyectado");
   const [camionId, setCamionId] = useState("");
   const [productoId, setProductoId] = useState("");
+  const [productoNuevoNombre, setProductoNuevoNombre] = useState("");
+  const [productoNuevoUnidad, setProductoNuevoUnidad] = useState("");
   const [cantidad, setCantidad] = useState("");
   const [monto, setMonto] = useState("");
   const [proveedor, setProveedor] = useState("");
@@ -2114,6 +2116,10 @@ function PanelFinanzas() {
       setError("Falta el monto");
       return;
     }
+    if (tipo === "gasto_insumo" && !productoId && !productoNuevoNombre.trim()) {
+      setError("Elegí un producto o escribí el nombre de uno nuevo");
+      return;
+    }
     setGuardando(true);
     const res = await fetch("/api/admin/finanzas/movimientos", {
       method: "POST",
@@ -2122,6 +2128,8 @@ function PanelFinanzas() {
         tipo,
         camion_id: camionId || null,
         producto_id: productoId || null,
+        producto_nombre_nuevo: !productoId ? productoNuevoNombre.trim() || null : null,
+        unidad_nueva: productoNuevoUnidad.trim() || null,
         cantidad: cantidad ? parseFloat(cantidad) : null,
         monto: parseFloat(monto),
         proveedor: proveedor.trim() || null,
@@ -2138,6 +2146,8 @@ function PanelFinanzas() {
     }
     setCamionId("");
     setProductoId("");
+    setProductoNuevoNombre("");
+    setProductoNuevoUnidad("");
     setCantidad("");
     setMonto("");
     setProveedor("");
@@ -2351,21 +2361,57 @@ function PanelFinanzas() {
         {tipo === "gasto_insumo" && (
           <>
             <p className="text-xs text-gray-500">Producto</p>
-            <select value={productoId} onChange={(e) => setProductoId(e.target.value)} className="border rounded-lg p-2 w-full">
-              <option value="">Elegir producto</option>
+            <select
+              value={productoId}
+              onChange={(e) => {
+                setProductoId(e.target.value);
+                if (e.target.value) {
+                  setProductoNuevoNombre("");
+                  setProductoNuevoUnidad("");
+                }
+              }}
+              className="border rounded-lg p-2 w-full"
+            >
+              <option value="">
+                {productos.length > 0 ? "Elegir producto existente" : "No hay productos todavía"}
+              </option>
               {productos.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.nombre}
+                  {p.nombre} (precio prom.: {p.precio_unitario.toFixed(2)})
                 </option>
               ))}
             </select>
-            <p className="text-xs text-gray-500">Cantidad comprada</p>
+
+            {!productoId && (
+              <>
+                <p className="text-xs text-gray-500 pt-1">O escribí el nombre de un producto nuevo</p>
+                <input
+                  type="text"
+                  value={productoNuevoNombre}
+                  onChange={(e) => setProductoNuevoNombre(e.target.value)}
+                  placeholder="Ej: Aceite 15W40"
+                  className="border rounded-lg p-2 w-full"
+                />
+                <input
+                  type="text"
+                  value={productoNuevoUnidad}
+                  onChange={(e) => setProductoNuevoUnidad(e.target.value)}
+                  placeholder="Unidad (litro, unidad, kg...) opcional"
+                  className="border rounded-lg p-2 w-full"
+                />
+              </>
+            )}
+
+            <p className="text-xs text-gray-500 pt-1">Cantidad comprada</p>
             <input
               type="number"
               value={cantidad}
               onChange={(e) => setCantidad(e.target.value)}
               className="border rounded-lg p-2 w-full"
             />
+            <p className="text-xs text-gray-400">
+              El precio del producto en Inventario se actualiza como promedio ponderado, no se pisa.
+            </p>
           </>
         )}
 

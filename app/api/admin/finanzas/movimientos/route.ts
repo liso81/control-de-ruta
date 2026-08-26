@@ -44,7 +44,9 @@ export async function POST(request: Request) {
   const {
     tipo,
     camion_id,
-    producto_id,
+    producto_id: producto_id_recibido,
+    producto_nombre_nuevo,
+    unidad_nueva,
     cantidad,
     monto,
     proveedor,
@@ -61,27 +63,58 @@ export async function POST(request: Request) {
 
   const fechaFinal = fecha || new Date().toISOString().slice(0, 10);
   let mantenimiento_id: string | null = null;
+  let producto_id = producto_id_recibido || null;
 
-  // --- Compra de insumos: sube el stock del producto en Inventario ---
+  // --- Compra de insumos: crea el producto si es nuevo, y actualiza stock
+  // usando costo PROMEDIO PONDERADO (no reemplaza el precio, lo promedia
+  // según lo que ya había en stock + lo nuevo que entra) ---
   if (tipo === "gasto_insumo") {
-    if (!producto_id || !cantidad) {
-      return NextResponse.json({ error: "Faltan producto_id o cantidad" }, { status: 400 });
+    if (!cantidad) {
+      return NextResponse.json({ error: "Falta la cantidad" }, { status: 400 });
     }
-    const { data: producto } = await supabaseAdmin
-      .from("productos")
-      .select("stock_actual")
-      .eq("id", producto_id)
-      .single();
+    if (!producto_id && !producto_nombre_nuevo) {
+      return NextResponse.json({ error: "Falta elegir un producto o escribir uno nuevo" }, { status: 400 });
+    }
 
-    if (producto) {
-      const nuevoPrecioUnitario = cantidad > 0 ? monto / cantidad : undefined;
-      await supabaseAdmin
+    const precioCompraUnitario = cantidad > 0 ? monto / cantidad : 0;
+
+    if (!producto_id && producto_nombre_nuevo) {
+      // Producto nuevo: se crea directo con el precio de esta compra.
+      const { data: nuevoProducto, error: errorCrear } = await supabaseAdmin
         .from("productos")
-        .update({
-          stock_actual: producto.stock_actual + cantidad,
-          ...(nuevoPrecioUnitario !== undefined ? { precio_unitario: nuevoPrecioUnitario } : {}),
+        .insert({
+          nombre: producto_nombre_nuevo,
+          unidad: unidad_nueva ?? null,
+          precio_unitario: precioCompraUnitario,
+          stock_actual: cantidad,
         })
-        .eq("id", producto_id);
+        .select()
+        .single();
+
+      if (errorCrear) {
+        return NextResponse.json({ error: errorCrear.message }, { status: 500 });
+      }
+      producto_id = nuevoProducto.id;
+    } else if (producto_id) {
+      // Producto existente: promedio ponderado entre lo que ya había en
+      // stock (a su precio actual) y lo que entra ahora (a su precio de
+      // compra), para que el precio del inventario sea un promedio real.
+      const { data: producto } = await supabaseAdmin
+        .from("productos")
+        .select("stock_actual, precio_unitario")
+        .eq("id", producto_id)
+        .single();
+
+      if (producto) {
+        const valorInventarioActual = producto.stock_actual * producto.precio_unitario;
+        const nuevoStock = producto.stock_actual + cantidad;
+        const nuevoPrecioPromedio = nuevoStock > 0 ? (valorInventarioActual + monto) / nuevoStock : producto.precio_unitario;
+
+        await supabaseAdmin
+          .from("productos")
+          .update({ stock_actual: nuevoStock, precio_unitario: nuevoPrecioPromedio })
+          .eq("id", producto_id);
+      }
     }
   }
 
