@@ -55,7 +55,7 @@ export default function AdminPage() {
   if (cargando) {
     return (
       <main className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-500">Cargando...</p>
+        <p className="text-[var(--color-ink-soft)]">Cargando...</p>
       </main>
     );
   }
@@ -94,91 +94,179 @@ function PantallaLogin({ onLogin }: { onLogin: () => void }) {
   }
 
   return (
-    <main className="min-h-screen p-6 max-w-sm mx-auto flex flex-col justify-center gap-3">
-      <h1 className="text-2xl font-bold mb-2">Panel del dueño</h1>
-      <input
-        type="text"
-        value={username}
-        onChange={(e) => setUsername(e.target.value)}
-        placeholder="Usuario"
-        className="border rounded-lg p-3"
-      />
-      <input
-        type="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        placeholder="Contraseña"
-        className="border rounded-lg p-3"
-      />
-      {error && <p className="text-red-600 text-sm">{error}</p>}
-      <button
-        onClick={iniciarSesion}
-        disabled={enviando}
-        className="bg-black text-white rounded-lg p-3 font-semibold disabled:opacity-40"
-      >
-        {enviando ? "Entrando..." : "Entrar"}
-      </button>
+    <main className="min-h-screen flex flex-col justify-center px-6 py-10" style={{ background: "var(--color-bg)" }}>
+      <div className="max-w-sm w-full mx-auto">
+        <div className="w-12 h-12 rounded-2xl bg-[var(--color-accent)] flex items-center justify-center mb-5">
+          <span className="text-white text-xl font-display font-bold">CR</span>
+        </div>
+        <h1 className="font-display text-2xl font-bold mb-1 text-[var(--color-ink)]">Panel del dueño</h1>
+        <p className="text-sm text-[var(--color-ink-soft)] mb-6">Control de Ruta — gestión de flota</p>
+
+        <div className="bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-5 space-y-3">
+          <div>
+            <label className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Usuario</label>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Contraseña</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
+              onKeyDown={(e) => e.key === "Enter" && iniciarSesion()}
+            />
+          </div>
+          {error && <p className="text-sm text-[var(--color-danger)]">{error}</p>}
+          <button
+            onClick={iniciarSesion}
+            disabled={enviando}
+            className="w-full rounded-xl bg-[var(--color-accent)] text-white font-semibold py-2.5 active:scale-[0.98] transition disabled:opacity-40"
+          >
+            {enviando ? "Entrando..." : "Entrar"}
+          </button>
+        </div>
+      </div>
     </main>
   );
 }
 
+type TabId = "reportes" | "vehiculos" | "operaciones" | "mantenimientos" | "inventario" | "cxc" | "provision" | "finanzas";
+
+const ICONOS_TAB: Record<TabId, string> = {
+  reportes: "🔔",
+  vehiculos: "🚚",
+  operaciones: "📋",
+  finanzas: "💰",
+  mantenimientos: "🔧",
+  inventario: "📦",
+  cxc: "🧾",
+  provision: "🏦",
+};
+
 function PanelAdmin() {
-  const [tab, setTab] = useState<
-    | "reportes"
-    | "vehiculos"
-    | "operaciones"
-    | "mantenimientos"
-    | "inventario"
-    | "cxc"
-    | "provision"
-    | "finanzas"
-  >("reportes");
+  const [tab, setTab] = useState<TabId>("reportes");
+  const [menuAbierto, setMenuAbierto] = useState(false);
 
   async function cerrarSesion() {
     await fetch("/api/admin/logout", { method: "POST" });
     window.location.reload();
   }
 
-  const tabs: { id: typeof tab; label: string }[] = [
+  const tabsPrincipales: { id: TabId; label: string }[] = [
     { id: "reportes", label: "Reportes" },
-    { id: "vehiculos", label: "Vehículos" },
     { id: "operaciones", label: "Operac." },
-    { id: "mantenimientos", label: "Mantenim." },
-    { id: "inventario", label: "Invent." },
-    { id: "cxc", label: "Cuentas x Cobrar" },
-    { id: "provision", label: "Provisión de Fondos" },
     { id: "finanzas", label: "Finanzas" },
+    { id: "vehiculos", label: "Vehículos" },
   ];
 
+  const tabsMas: { id: TabId; label: string }[] = [
+    { id: "mantenimientos", label: "Mantenimientos" },
+    { id: "inventario", label: "Inventario" },
+    { id: "cxc", label: "Cuentas x Cobrar" },
+    { id: "provision", label: "Provisión de Fondos" },
+  ];
+
+  const todasLasTabs = [...tabsPrincipales, ...tabsMas];
+  const tabActual = todasLasTabs.find((t) => t.id === tab);
+  const estaEnMas = tabsMas.some((t) => t.id === tab);
+
+  function elegirTab(id: TabId) {
+    setTab(id);
+    setMenuAbierto(false);
+  }
+
   return (
-    <main className="min-h-screen p-4 max-w-md mx-auto">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">Panel del dueño</h1>
-        <button onClick={cerrarSesion} className="text-sm border rounded-lg px-3 py-1">
-          Salir
-        </button>
-      </div>
-
-      <div className="flex gap-1 mb-4 overflow-x-auto pb-1">
-        {tabs.map((t) => (
+    <main className="min-h-screen pb-24" style={{ background: "var(--color-bg)" }}>
+      <div className="sticky top-0 z-10 bg-[var(--color-bg)]/95 backdrop-blur px-4 pt-4 pb-2 border-b border-[var(--color-border)]">
+        <div className="flex justify-between items-center max-w-md mx-auto">
+          <div>
+            <p className="text-xs text-[var(--color-ink-soft)]">Panel del dueño</p>
+            <h1 className="font-display text-lg font-bold text-[var(--color-ink)]">{tabActual?.label}</h1>
+          </div>
           <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={`border rounded-lg p-2 text-xs font-semibold whitespace-nowrap flex-shrink-0 ${tab === t.id ? "bg-black text-white" : ""}`}
+            onClick={cerrarSesion}
+            className="text-xs font-medium rounded-xl border border-[var(--color-border)] px-3 py-1.5 active:scale-95 transition bg-white"
           >
-            {t.label}
+            Salir
           </button>
-        ))}
+        </div>
       </div>
 
-      {tab === "reportes" && <PanelReportes />}
-      {tab === "vehiculos" && <PanelVehiculos />}
-      {tab === "operaciones" && <PanelOperaciones />}
-      {tab === "mantenimientos" && <PanelMantenimientos />}
-      {tab === "inventario" && <PanelInventario />}
-      {tab === "cxc" && <PanelCuentasPorCobrar />}
-      {tab === "provision" && <PanelProvisionFondos />}
-      {tab === "finanzas" && <PanelFinanzas />}
+      <div className="max-w-md mx-auto px-4 pt-4">
+        {tab === "reportes" && <PanelReportes />}
+        {tab === "vehiculos" && <PanelVehiculos />}
+        {tab === "operaciones" && <PanelOperaciones />}
+        {tab === "mantenimientos" && <PanelMantenimientos />}
+        {tab === "inventario" && <PanelInventario />}
+        {tab === "cxc" && <PanelCuentasPorCobrar />}
+        {tab === "provision" && <PanelProvisionFondos />}
+        {tab === "finanzas" && <PanelFinanzas />}
+      </div>
+
+      {/* Barra de navegación inferior, fija, pensada para el pulgar */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-[var(--color-border)] pb-[env(safe-area-inset-bottom)] z-20">
+        <div className="max-w-md mx-auto grid grid-cols-5">
+          {tabsPrincipales.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => elegirTab(t.id)}
+              className="flex flex-col items-center justify-center gap-0.5 py-2.5 active:opacity-60 transition"
+            >
+              <span className={`text-lg ${tab === t.id ? "" : "opacity-50"}`}>{ICONOS_TAB[t.id]}</span>
+              <span
+                className={`text-[10px] font-medium ${tab === t.id ? "text-[var(--color-accent)]" : "text-[var(--color-ink-soft)]"}`}
+              >
+                {t.label}
+              </span>
+            </button>
+          ))}
+          <button
+            onClick={() => setMenuAbierto(true)}
+            className="flex flex-col items-center justify-center gap-0.5 py-2.5 active:opacity-60 transition"
+          >
+            <span className={`text-lg ${estaEnMas ? "" : "opacity-50"}`}>⋯</span>
+            <span className={`text-[10px] font-medium ${estaEnMas ? "text-[var(--color-accent)]" : "text-[var(--color-ink-soft)]"}`}>
+              Más
+            </span>
+          </button>
+        </div>
+      </nav>
+
+      {/* Hoja emergente con el resto de las secciones */}
+      {menuAbierto && (
+        <div className="fixed inset-0 z-30 flex items-end" onClick={() => setMenuAbierto(false)}>
+          <div className="absolute inset-0 bg-black/30" />
+          <div
+            className="relative bg-white w-full rounded-t-2xl p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] max-w-md mx-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-10 h-1 bg-[var(--color-border)] rounded-full mx-auto mb-4" />
+            <p className="font-display font-semibold text-sm mb-3 text-[var(--color-ink)]">Más secciones</p>
+            <div className="grid grid-cols-2 gap-2">
+              {tabsMas.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => elegirTab(t.id)}
+                  className={`flex items-center gap-2 rounded-xl border p-3 text-left active:scale-[0.98] transition ${
+                    tab === t.id
+                      ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)]"
+                      : "border-[var(--color-border)] bg-white"
+                  }`}
+                >
+                  <span className="text-lg">{ICONOS_TAB[t.id]}</span>
+                  <span className="text-sm font-medium text-[var(--color-ink)]">{t.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
@@ -295,73 +383,73 @@ function PanelVehiculos() {
 
   return (
     <div>
-      <h2 className="font-semibold mb-2">Vehículos</h2>
+      <h2 className="font-display font-semibold mb-2 text-[var(--color-ink)]">Vehículos</h2>
 
-      {error && <p className="text-red-600 text-sm mb-2">{error}</p>}
-      {cargando && <p className="text-gray-500">Cargando...</p>}
+      {error && <p className="text-[var(--color-danger)] text-sm mb-2">{error}</p>}
+      {cargando && <p className="text-[var(--color-ink-soft)]">Cargando...</p>}
 
       <div className="space-y-2 mb-4">
         {camiones.map((c) => (
-          <div key={c.id} className="border rounded-lg p-3">
+          <div key={c.id} className="bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4">
             {editandoId === c.id ? (
               <div className="space-y-2">
-                <p className="text-xs text-gray-500">Nombre</p>
+                <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Nombre</p>
                 <input
                   type="text"
                   value={nombreEdit}
                   onChange={(e) => setNombreEdit(e.target.value)}
-                  className="border rounded-lg p-2 w-full"
+                  className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
                 />
-                <p className="text-xs text-gray-500">Capacidad (litros)</p>
+                <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Capacidad (litros)</p>
                 <input
                   type="number"
                   value={capacidadEdit}
                   onChange={(e) => setCapacidadEdit(e.target.value)}
-                  className="border rounded-lg p-2 w-full"
+                  className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
                 />
-                <p className="text-xs text-gray-500">Matrícula</p>
+                <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Matrícula</p>
                 <input
                   type="text"
                   value={matriculaEdit}
                   onChange={(e) => setMatriculaEdit(e.target.value)}
-                  className="border rounded-lg p-2 w-full"
+                  className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
                 />
-                <p className="text-xs text-gray-500">Marca</p>
+                <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Marca</p>
                 <input
                   type="text"
                   value={marcaEdit}
                   onChange={(e) => setMarcaEdit(e.target.value)}
-                  className="border rounded-lg p-2 w-full"
+                  className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
                 />
-                <p className="text-xs text-gray-500">Km por litro</p>
+                <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Km por litro</p>
                 <input
                   type="number"
                   value={kmLitroEdit}
                   onChange={(e) => setKmLitroEdit(e.target.value)}
-                  className="border rounded-lg p-2 w-full"
+                  className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
                 />
-                <p className="text-xs text-gray-500">Km base (odómetro al empezar a usar el sistema)</p>
+                <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Km base (odómetro al empezar a usar el sistema)</p>
                 <input
                   type="number"
                   value={kmBaseEdit}
                   onChange={(e) => setKmBaseEdit(e.target.value)}
-                  className="border rounded-lg p-2 w-full"
+                  className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
                 />
-                <p className="text-xs text-gray-500">Precio por litro de gasóleo</p>
+                <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Precio por litro de gasóleo</p>
                 <input
                   type="number"
                   value={precioGasoleoEdit}
                   onChange={(e) => setPrecioGasoleoEdit(e.target.value)}
-                  className="border rounded-lg p-2 w-full"
+                  className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
                 />
                 <div className="flex gap-2">
                   <button
                     onClick={() => guardarEdicion(c.id)}
-                    className="border rounded-lg px-3 py-1 font-semibold flex-1"
+                    className="rounded-xl bg-[var(--color-accent)] text-white px-3 py-2 font-semibold flex-1 active:scale-[0.98] transition"
                   >
                     Guardar
                   </button>
-                  <button onClick={() => setEditandoId(null)} className="border rounded-lg px-3 py-1 flex-1">
+                  <button onClick={() => setEditandoId(null)} className="rounded-xl border border-[var(--color-border)] bg-white text-[var(--color-ink)] px-3 py-2 font-semibold flex-1 active:scale-[0.98] transition">
                     Cancelar
                   </button>
                 </div>
@@ -369,21 +457,21 @@ function PanelVehiculos() {
             ) : (
               <div className="flex justify-between items-center">
                 <div>
-                  <p className="font-semibold">{c.matricula || c.nombre}</p>
-                  <p className="text-sm text-gray-500">
+                  <p className="font-display font-semibold text-[var(--color-ink)]">{c.matricula || c.nombre}</p>
+                  <p className="text-sm text-[var(--color-ink-soft)]">
                     {c.nombre} · {c.litros_actual.toFixed(2)} L / {c.capacidad_litros.toFixed(2)} L
                   </p>
                   {(c.marca || c.km_por_litro) && (
-                    <p className="text-xs text-gray-400">
+                    <p className="text-xs text-[var(--color-ink-soft)] opacity-70">
                       {c.marca ?? ""} {c.km_por_litro ? `· ${c.km_por_litro} km/L` : ""}
                     </p>
                   )}
                 </div>
                 <div className="flex flex-col gap-1">
-                  <button onClick={() => empezarEdicion(c)} className="text-xs border rounded px-2 py-1">
+                  <button onClick={() => empezarEdicion(c)} className="text-xs font-medium rounded-lg border border-[var(--color-border)] px-2.5 py-1.5 active:scale-95 transition">
                     Editar
                   </button>
-                  <button onClick={() => setCamionDocumentos(c)} className="text-xs border rounded px-2 py-1">
+                  <button onClick={() => setCamionDocumentos(c)} className="text-xs font-medium rounded-lg border border-[var(--color-border)] px-2.5 py-1.5 active:scale-95 transition">
                     Documentos
                   </button>
                 </div>
@@ -391,61 +479,61 @@ function PanelVehiculos() {
             )}
           </div>
         ))}
-        {!cargando && camiones.length === 0 && <p className="text-gray-500">No hay camiones cargados todavía.</p>}
+        {!cargando && camiones.length === 0 && <p className="text-[var(--color-ink-soft)]">No hay camiones cargados todavía.</p>}
       </div>
 
-      <div className="border-t pt-4">
-        <h2 className="font-semibold mb-2">Agregar camión nuevo</h2>
+      <div className="border-t border-[var(--color-border)] pt-4">
+        <h2 className="font-display font-semibold mb-2 text-[var(--color-ink)]">Agregar camión nuevo</h2>
         <input
           type="text"
           value={nombreNuevo}
           onChange={(e) => setNombreNuevo(e.target.value)}
           placeholder="Nombre (ej: Camión 2)"
-          className="border rounded-lg p-2 w-full mb-2"
+          className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent mb-2"
         />
         <input
           type="number"
           value={capacidadNueva}
           onChange={(e) => setCapacidadNueva(e.target.value)}
           placeholder="Capacidad en litros"
-          className="border rounded-lg p-2 w-full mb-2"
+          className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent mb-2"
         />
         <input
           type="text"
           value={matriculaNueva}
           onChange={(e) => setMatriculaNueva(e.target.value)}
           placeholder="Matrícula"
-          className="border rounded-lg p-2 w-full mb-2"
+          className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent mb-2"
         />
         <input
           type="text"
           value={marcaNueva}
           onChange={(e) => setMarcaNueva(e.target.value)}
           placeholder="Marca"
-          className="border rounded-lg p-2 w-full mb-2"
+          className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent mb-2"
         />
         <input
           type="number"
           value={kmLitroNuevo}
           onChange={(e) => setKmLitroNuevo(e.target.value)}
           placeholder="Km por litro"
-          className="border rounded-lg p-2 w-full mb-2"
+          className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent mb-2"
         />
         <input
           type="number"
           value={kmBaseNuevo}
           onChange={(e) => setKmBaseNuevo(e.target.value)}
           placeholder="Km actual del odómetro (opcional)"
-          className="border rounded-lg p-2 w-full mb-2"
+          className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent mb-2"
         />
         <input
           type="number"
           value={precioGasoleoNuevo}
           onChange={(e) => setPrecioGasoleoNuevo(e.target.value)}
           placeholder="Precio por litro de gasóleo"
-          className="border rounded-lg p-2 w-full mb-2"
+          className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent mb-2"
         />
-        <button onClick={crearCamion} className="border rounded-lg p-2 w-full font-semibold">
+        <button onClick={crearCamion} className="w-full rounded-xl bg-[var(--color-accent)] text-white font-semibold py-2.5 active:scale-[0.98] transition">
           Crear camión
         </button>
       </div>
@@ -478,22 +566,22 @@ function PanelOperaciones() {
 
   return (
     <div>
-      <h2 className="font-semibold mb-2">Elegí un camión</h2>
-      {cargando && <p className="text-gray-500">Cargando...</p>}
+      <h2 className="font-display font-semibold mb-2 text-[var(--color-ink)]">Elegí un camión</h2>
+      {cargando && <p className="text-[var(--color-ink-soft)]">Cargando...</p>}
       <div className="space-y-2">
         {camiones.map((c) => (
           <button
             key={c.id}
             onClick={() => setCamionSeleccionado(c)}
-            className="w-full border rounded-lg p-3 text-left hover:bg-gray-50"
+            className="w-full bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4 text-left active:scale-[0.98] transition"
           >
-            <p className="font-semibold">{c.matricula || c.nombre}</p>
-            <p className="text-sm text-gray-500">
+            <p className="font-display font-semibold text-[var(--color-ink)]">{c.matricula || c.nombre}</p>
+            <p className="text-sm text-[var(--color-ink-soft)]">
               {c.nombre} · {c.litros_actual.toFixed(2)} L / {c.capacidad_litros.toFixed(2)} L
             </p>
           </button>
         ))}
-        {!cargando && camiones.length === 0 && <p className="text-gray-500">No hay camiones cargados todavía.</p>}
+        {!cargando && camiones.length === 0 && <p className="text-[var(--color-ink-soft)]">No hay camiones cargados todavía.</p>}
       </div>
     </div>
   );
@@ -529,45 +617,45 @@ function DetalleCamion({ camion, onVolver }: { camion: Camion; onVolver: () => v
       <button onClick={onVolver} className="text-sm mb-3">
         ← Volver a camiones
       </button>
-      <h2 className="font-semibold mb-1">{camion.matricula || camion.nombre}</h2>
-      <p className="text-sm text-gray-500 mb-3">
+      <h2 className="font-display font-semibold mb-1 text-[var(--color-ink)]">{camion.matricula || camion.nombre}</h2>
+      <p className="text-sm text-[var(--color-ink-soft)] mb-3">
         {camion.nombre} · {camion.litros_actual.toFixed(2)} L / {camion.capacidad_litros.toFixed(2)} L
       </p>
 
-      {cargando && <p className="text-gray-500">Cargando...</p>}
+      {cargando && <p className="text-[var(--color-ink-soft)]">Cargando...</p>}
 
       {turnoHoy && (
         <div className="mb-4">
-          <h3 className="font-semibold text-sm mb-1">Hoy — en vivo</h3>
+          <h3 className="font-display font-semibold text-sm mb-1 text-[var(--color-ink)]">Hoy — en vivo</h3>
           <button
             onClick={() => setTurnoSeleccionado(turnoHoy)}
-            className="w-full border rounded-lg p-3 text-left hover:bg-gray-50"
+            className="w-full bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4 text-left active:scale-[0.98] transition"
           >
-            <p className="font-semibold">{turnoHoy.chofer_nombre}</p>
-            <p className="text-sm text-gray-500">
+            <p className="font-display font-semibold text-[var(--color-ink)]">{turnoHoy.chofer_nombre}</p>
+            <p className="text-sm text-[var(--color-ink-soft)]">
               {turnoHoy.estado === "abierto" ? "🟢 Turno abierto" : "✅ Cerrado"}
             </p>
           </button>
         </div>
       )}
 
-      {!cargando && !turnoHoy && <p className="text-gray-500 mb-4">Sin turno abierto hoy.</p>}
+      {!cargando && !turnoHoy && <p className="text-[var(--color-ink-soft)] mb-4">Sin turno abierto hoy.</p>}
 
-      <h3 className="font-semibold text-sm mb-1">Historial</h3>
+      <h3 className="font-display font-semibold text-sm mb-1 text-[var(--color-ink)]">Historial</h3>
       <div className="space-y-2">
         {historial.map((t) => (
           <button
             key={t.id}
             onClick={() => setTurnoSeleccionado(t)}
-            className="w-full border rounded-lg p-3 text-left hover:bg-gray-50"
+            className="w-full bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4 text-left active:scale-[0.98] transition"
           >
-            <p className="font-semibold">{t.fecha}</p>
-            <p className="text-sm text-gray-500">
+            <p className="font-display font-semibold text-[var(--color-ink)]">{t.fecha}</p>
+            <p className="text-sm text-[var(--color-ink-soft)]">
               {t.chofer_nombre} · {t.estado === "cerrado" ? `Remanente: ${t.remanente?.toFixed(2)}` : "Abierto"}
             </p>
           </button>
         ))}
-        {!cargando && historial.length === 0 && <p className="text-gray-500">Sin historial todavía.</p>}
+        {!cargando && historial.length === 0 && <p className="text-[var(--color-ink-soft)]">Sin historial todavía.</p>}
       </div>
     </div>
   );
@@ -605,12 +693,12 @@ function DetalleTurno({ turno, onVolver }: { turno: Turno; onVolver: () => void 
       <button onClick={onVolver} className="text-sm mb-3">
         ← Volver
       </button>
-      <h2 className="font-semibold mb-1">
+      <h2 className="font-display font-semibold mb-1 text-[var(--color-ink)]">
         {turno.fecha} · {turno.chofer_nombre}
       </h2>
-      <p className="text-sm text-gray-500 mb-3">{turno.estado === "abierto" ? "🟢 Abierto" : "✅ Cerrado"}</p>
+      <p className="text-sm text-[var(--color-ink-soft)] mb-3">{turno.estado === "abierto" ? "🟢 Abierto" : "✅ Cerrado"}</p>
 
-      {cargando && <p className="text-gray-500">Cargando...</p>}
+      {cargando && <p className="text-[var(--color-ink-soft)]">Cargando...</p>}
 
       <div className="space-y-1 mb-3">
         <Fila label="Saldo inicial" valor={turno.saldo_inicial} />
@@ -623,12 +711,12 @@ function DetalleTurno({ turno, onVolver }: { turno: Turno; onVolver: () => void 
       </div>
 
       {turno.estado === "cerrado" && (
-        <div className="border rounded-lg p-3 mb-3 bg-green-50">
-          <p className="font-semibold">Liquidación</p>
+        <div className="rounded-2xl border border-[var(--color-ok)] shadow-sm p-4 mb-3 bg-[var(--color-ok-soft)]">
+          <p className="font-display font-semibold text-[var(--color-ink)]">Liquidación</p>
           <p className="text-sm">Entregado: {turno.efectivo_entregado?.toFixed(2)}</p>
           <p className="text-sm">Remanente: {turno.remanente?.toFixed(2)}</p>
           {turno.desglose_efectivo && (
-            <div className="text-xs text-gray-600 mt-1">
+            <div className="text-xs text-[var(--color-ink-soft)] mt-1">
               {Object.entries(turno.desglose_efectivo)
                 .filter(([, cant]) => cant > 0)
                 .map(([denom, cant]) => (
@@ -642,17 +730,17 @@ function DetalleTurno({ turno, onVolver }: { turno: Turno; onVolver: () => void 
       )}
 
       {alertas.length > 0 && (
-        <div className="border border-amber-400 bg-amber-50 rounded-lg p-3 mb-3">
-          <p className="font-semibold text-amber-800 text-sm">⚠️ Alertas de sobrante</p>
+        <div className="border border-[var(--color-warn)] bg-[var(--color-warn-soft)] rounded-lg p-3 mb-3">
+          <p className="font-semibold text-[var(--color-warn)] text-sm">⚠️ Alertas de sobrante</p>
           {alertas.map((a) => (
-            <p key={a.id} className="text-xs text-amber-800">
+            <p key={a.id} className="text-xs text-[var(--color-warn)]">
               {a.litros?.toFixed(2)} L · ≈ {a.monto?.toFixed(2)}
             </p>
           ))}
         </div>
       )}
 
-      <h3 className="font-semibold text-sm mb-1">Movimientos</h3>
+      <h3 className="font-display font-semibold text-sm mb-1 text-[var(--color-ink)]">Movimientos</h3>
       <div className="space-y-1">
         {movimientos
           .filter((m) => m.tipo !== "alerta_sobrante")
@@ -664,7 +752,7 @@ function DetalleTurno({ turno, onVolver }: { turno: Turno; onVolver: () => void 
               <span>{(m.monto ?? 0).toFixed(2)}</span>
             </div>
           ))}
-        {!cargando && movimientos.length === 0 && <p className="text-gray-500">Sin movimientos.</p>}
+        {!cargando && movimientos.length === 0 && <p className="text-[var(--color-ink-soft)]">Sin movimientos.</p>}
       </div>
     </div>
   );
@@ -768,13 +856,13 @@ function PanelInventario() {
 
   return (
     <div>
-      <h2 className="font-semibold mb-2">Inventario (almacén general)</h2>
-      {error && <p className="text-red-600 text-sm mb-2">{error}</p>}
-      {cargando && <p className="text-gray-500">Cargando...</p>}
+      <h2 className="font-display font-semibold mb-2 text-[var(--color-ink)]">Inventario (almacén general)</h2>
+      {error && <p className="text-[var(--color-danger)] text-sm mb-2">{error}</p>}
+      {cargando && <p className="text-[var(--color-ink-soft)]">Cargando...</p>}
 
       <div className="space-y-2 mb-4">
         {productos.map((p) => (
-          <div key={p.id} className="border rounded-lg p-3">
+          <div key={p.id} className="bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4">
             {editandoId === p.id ? (
               <div className="space-y-2">
                 <input
@@ -782,34 +870,34 @@ function PanelInventario() {
                   value={nombreEdit}
                   onChange={(e) => setNombreEdit(e.target.value)}
                   placeholder="Nombre"
-                  className="border rounded-lg p-2 w-full"
+                  className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
                 />
                 <input
                   type="text"
                   value={unidadEdit}
                   onChange={(e) => setUnidadEdit(e.target.value)}
                   placeholder="Unidad (litro, unidad, kg...)"
-                  className="border rounded-lg p-2 w-full"
+                  className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
                 />
                 <input
                   type="number"
                   value={precioEdit}
                   onChange={(e) => setPrecioEdit(e.target.value)}
                   placeholder="Precio unitario"
-                  className="border rounded-lg p-2 w-full"
+                  className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
                 />
                 <input
                   type="number"
                   value={stockEdit}
                   onChange={(e) => setStockEdit(e.target.value)}
                   placeholder="Stock disponible"
-                  className="border rounded-lg p-2 w-full"
+                  className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
                 />
                 <div className="flex gap-2">
-                  <button onClick={() => guardarEdicion(p.id)} className="border rounded-lg px-3 py-1 font-semibold flex-1">
+                  <button onClick={() => guardarEdicion(p.id)} className="rounded-xl bg-[var(--color-accent)] text-white px-3 py-2 font-semibold flex-1 active:scale-[0.98] transition">
                     Guardar
                   </button>
-                  <button onClick={() => setEditandoId(null)} className="border rounded-lg px-3 py-1 flex-1">
+                  <button onClick={() => setEditandoId(null)} className="rounded-xl border border-[var(--color-border)] bg-white text-[var(--color-ink)] px-3 py-2 font-semibold flex-1 active:scale-[0.98] transition">
                     Cancelar
                   </button>
                 </div>
@@ -817,52 +905,52 @@ function PanelInventario() {
             ) : (
               <div className="flex justify-between items-center">
                 <div>
-                  <p className="font-semibold">{p.nombre}</p>
-                  <p className="text-sm text-gray-500">
+                  <p className="font-display font-semibold text-[var(--color-ink)]">{p.nombre}</p>
+                  <p className="text-sm text-[var(--color-ink-soft)]">
                     Precio: {p.precio_unitario.toFixed(2)} {p.unidad ? `/ ${p.unidad}` : ""} · Stock: {p.stock_actual}
                   </p>
                 </div>
-                <button onClick={() => empezarEdicion(p)} className="text-xs border rounded px-2 py-1">
+                <button onClick={() => empezarEdicion(p)} className="text-xs font-medium rounded-lg border border-[var(--color-border)] px-2.5 py-1.5 active:scale-95 transition">
                   Editar
                 </button>
               </div>
             )}
           </div>
         ))}
-        {!cargando && productos.length === 0 && <p className="text-gray-500">Sin productos cargados todavía.</p>}
+        {!cargando && productos.length === 0 && <p className="text-[var(--color-ink-soft)]">Sin productos cargados todavía.</p>}
       </div>
 
-      <div className="border-t pt-4">
-        <h2 className="font-semibold mb-2">Agregar producto</h2>
+      <div className="border-t border-[var(--color-border)] pt-4">
+        <h2 className="font-display font-semibold mb-2 text-[var(--color-ink)]">Agregar producto</h2>
         <input
           type="text"
           value={nombreNuevo}
           onChange={(e) => setNombreNuevo(e.target.value)}
           placeholder="Nombre (ej: Aceite 15W40)"
-          className="border rounded-lg p-2 w-full mb-2"
+          className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent mb-2"
         />
         <input
           type="text"
           value={unidadNueva}
           onChange={(e) => setUnidadNueva(e.target.value)}
           placeholder="Unidad (litro, unidad, kg...)"
-          className="border rounded-lg p-2 w-full mb-2"
+          className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent mb-2"
         />
         <input
           type="number"
           value={precioNuevo}
           onChange={(e) => setPrecioNuevo(e.target.value)}
           placeholder="Precio unitario"
-          className="border rounded-lg p-2 w-full mb-2"
+          className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent mb-2"
         />
         <input
           type="number"
           value={stockNuevo}
           onChange={(e) => setStockNuevo(e.target.value)}
           placeholder="Stock inicial"
-          className="border rounded-lg p-2 w-full mb-2"
+          className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent mb-2"
         />
-        <button onClick={crearProducto} className="border rounded-lg p-2 w-full font-semibold">
+        <button onClick={crearProducto} className="w-full rounded-xl bg-[var(--color-accent)] text-white font-semibold py-2.5 active:scale-[0.98] transition">
           Agregar producto
         </button>
       </div>
@@ -906,20 +994,20 @@ function PanelMantenimientos() {
 
   return (
     <div>
-      <h2 className="font-semibold mb-2">Elegí un camión</h2>
-      {cargando && <p className="text-gray-500">Cargando...</p>}
+      <h2 className="font-display font-semibold mb-2 text-[var(--color-ink)]">Elegí un camión</h2>
+      {cargando && <p className="text-[var(--color-ink-soft)]">Cargando...</p>}
       <div className="space-y-2">
         {camiones.map((c) => (
           <button
             key={c.id}
             onClick={() => setCamionSeleccionado(c)}
-            className="w-full border rounded-lg p-3 text-left hover:bg-gray-50"
+            className="w-full bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4 text-left active:scale-[0.98] transition"
           >
-            <p className="font-semibold">{c.matricula || c.nombre}</p>
-            <p className="text-sm text-gray-500">{c.nombre}</p>
+            <p className="font-display font-semibold text-[var(--color-ink)]">{c.matricula || c.nombre}</p>
+            <p className="text-sm text-[var(--color-ink-soft)]">{c.nombre}</p>
           </button>
         ))}
-        {!cargando && camiones.length === 0 && <p className="text-gray-500">No hay camiones cargados todavía.</p>}
+        {!cargando && camiones.length === 0 && <p className="text-[var(--color-ink-soft)]">No hay camiones cargados todavía.</p>}
       </div>
     </div>
   );
@@ -1049,7 +1137,7 @@ function DetalleMantenimientoCamion({ camion, onVolver }: { camion: Camion; onVo
     return <ExpedienteMantenimiento mantenimiento={mantenimientoDetalle} onVolver={() => setMantenimientoDetalle(null)} />;
   }
 
-  const colores = { ok: "text-green-700", proximo: "text-amber-700", vencido: "text-red-700" };
+  const colores = { ok: "text-[var(--color-ok)]", proximo: "text-[var(--color-warn)]", vencido: "text-[var(--color-danger)]" };
   const iconos = { ok: "✅", proximo: "⚡", vencido: "⚠️" };
 
   return (
@@ -1057,29 +1145,29 @@ function DetalleMantenimientoCamion({ camion, onVolver }: { camion: Camion; onVo
       <button onClick={onVolver} className="text-sm mb-3">
         ← Volver a camiones
       </button>
-      <h2 className="font-semibold mb-1">{camion.matricula || camion.nombre}</h2>
-      <p className="text-sm text-gray-500 mb-3">
+      <h2 className="font-display font-semibold mb-1 text-[var(--color-ink)]">{camion.matricula || camion.nombre}</h2>
+      <p className="text-sm text-[var(--color-ink-soft)] mb-3">
         {camion.nombre} · Km estimado:{" "}
         <strong>{kmActual !== null ? Math.round(kmActual).toLocaleString() : "—"} km</strong>
       </p>
 
-      {cargando && <p className="text-gray-500">Cargando...</p>}
+      {cargando && <p className="text-[var(--color-ink-soft)]">Cargando...</p>}
 
       {faltaPrecio && (
-        <p className="text-amber-700 text-sm bg-amber-50 border border-amber-400 rounded-lg p-2 mb-3">
+        <p className="text-[var(--color-warn)] text-sm bg-[var(--color-warn-soft)] border border-[var(--color-warn)] rounded-lg p-2 mb-3">
           ⚠️ Falta configurar el "Precio por litro de gasóleo" en Vehículos para estimar el km.
         </p>
       )}
 
       {/* Alertas */}
       <div className="mb-4">
-        <h3 className="font-semibold text-sm mb-1">Alertas de mantenimiento preventivo</h3>
+        <h3 className="font-display font-semibold text-sm mb-1 text-[var(--color-ink)]">Alertas de mantenimiento preventivo</h3>
         {alertas.length === 0 && (
-          <p className="text-gray-500 text-sm">Sin intervalos configurados todavía.</p>
+          <p className="text-[var(--color-ink-soft)] text-sm">Sin intervalos configurados todavía.</p>
         )}
         <div className="space-y-1">
           {alertas.map((a) => (
-            <div key={a.tipo} className="border rounded-lg p-2 flex justify-between items-center">
+            <div key={a.tipo} className="rounded-xl border border-[var(--color-border)] bg-white p-3 flex justify-between items-center">
               <div>
                 <p className="text-sm font-semibold">{a.tipo}</p>
                 <p className={`text-xs ${colores[a.estado]}`}>
@@ -1089,7 +1177,7 @@ function DetalleMantenimientoCamion({ camion, onVolver }: { camion: Camion; onVo
                     : `Faltan ${Math.round(a.km_faltantes).toLocaleString()} km`}
                 </p>
               </div>
-              <p className="text-xs text-gray-400">cada {a.intervalo_km.toLocaleString()} km</p>
+              <p className="text-xs text-[var(--color-ink-soft)] opacity-70">cada {a.intervalo_km.toLocaleString()} km</p>
             </div>
           ))}
         </div>
@@ -1097,16 +1185,16 @@ function DetalleMantenimientoCamion({ camion, onVolver }: { camion: Camion; onVo
 
       {/* Intervalos configurables */}
       <div className="mb-4">
-        <button onClick={() => setMostrarIntervalos(!mostrarIntervalos)} className="text-sm border rounded-lg px-3 py-1">
+        <button onClick={() => setMostrarIntervalos(!mostrarIntervalos)} className="text-sm font-medium rounded-xl border border-[var(--color-border)] px-3 py-1.5 active:scale-95 transition">
           {mostrarIntervalos ? "Ocultar" : "Configurar"} intervalos
         </button>
         {mostrarIntervalos && (
-          <div className="border rounded-lg p-3 mt-2 space-y-2">
-            <p className="text-xs text-gray-500">Tipo</p>
+          <div className="rounded-2xl border border-[var(--color-border)] bg-white shadow-sm p-4 mt-2 space-y-2">
+            <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Tipo</p>
             <select
               value={tipoIntervalo}
               onChange={(e) => setTipoIntervalo(e.target.value)}
-              className="border rounded-lg p-2 w-full"
+              className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
             >
               {TIPOS_MANTENIMIENTO.map((t) => (
                 <option key={t} value={t}>
@@ -1114,19 +1202,19 @@ function DetalleMantenimientoCamion({ camion, onVolver }: { camion: Camion; onVo
                 </option>
               ))}
             </select>
-            <p className="text-xs text-gray-500">Cada cuántos km</p>
+            <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Cada cuántos km</p>
             <input
               type="number"
               value={valorIntervalo}
               onChange={(e) => setValorIntervalo(e.target.value)}
               placeholder="Ej: 5000"
-              className="border rounded-lg p-2 w-full"
+              className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
             />
-            <button onClick={guardarIntervalo} className="border rounded-lg p-2 w-full font-semibold">
+            <button onClick={guardarIntervalo} className="w-full rounded-xl bg-[var(--color-accent)] text-white font-semibold py-2.5 active:scale-[0.98] transition">
               Guardar intervalo
             </button>
             {intervalos.length > 0 && (
-              <div className="pt-2 text-xs text-gray-500">
+              <div className="pt-2 text-xs text-[var(--color-ink-soft)]">
                 {intervalos.map((i) => (
                   <p key={i.id}>
                     {i.tipo}: cada {i.intervalo_km.toLocaleString()} km
@@ -1139,11 +1227,11 @@ function DetalleMantenimientoCamion({ camion, onVolver }: { camion: Camion; onVo
       </div>
 
       {/* Registrar mantenimiento */}
-      <div className="border rounded-lg p-3 mb-4 space-y-2">
-        <p className="font-semibold text-sm">Registrar mantenimiento</p>
+      <div className="bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4 mb-4 space-y-2">
+        <p className="font-display font-semibold text-sm text-[var(--color-ink)]">Registrar mantenimiento</p>
 
-        <p className="text-xs text-gray-500">Tipo</p>
-        <select value={tipo} onChange={(e) => setTipo(e.target.value)} className="border rounded-lg p-2 w-full">
+        <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Tipo</p>
+        <select value={tipo} onChange={(e) => setTipo(e.target.value)} className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent">
           {TIPOS_MANTENIMIENTO.map((t) => (
             <option key={t} value={t}>
               {t}
@@ -1151,24 +1239,24 @@ function DetalleMantenimientoCamion({ camion, onVolver }: { camion: Camion; onVo
           ))}
         </select>
 
-        <p className="text-xs text-gray-500">Fecha</p>
+        <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Fecha</p>
         <input
           type="date"
           value={fecha}
           onChange={(e) => setFecha(e.target.value)}
-          className="border rounded-lg p-2 w-full"
+          className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
         />
 
-        <p className="text-xs text-gray-500">Km (se sugiere el estimado, editable)</p>
-        <input type="number" value={km} onChange={(e) => setKm(e.target.value)} className="border rounded-lg p-2 w-full" />
+        <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Km (se sugiere el estimado, editable)</p>
+        <input type="number" value={km} onChange={(e) => setKm(e.target.value)} className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent" />
 
-        <p className="text-xs text-gray-500 pt-2">Productos usados (del inventario)</p>
+        <p className="text-xs font-medium text-[var(--color-ink-soft)] pt-2 block">Productos usados (del inventario)</p>
         {lineasProductos.map((linea, i) => (
           <div key={i} className="flex gap-2">
             <select
               value={linea.producto_id}
               onChange={(e) => actualizarLinea(i, "producto_id", e.target.value)}
-              className="border rounded-lg p-2 flex-1"
+              className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 flex-1"
             >
               <option value="">Elegir producto</option>
               {productosDisponibles.map((p) => (
@@ -1182,75 +1270,75 @@ function DetalleMantenimientoCamion({ camion, onVolver }: { camion: Camion; onVo
               value={linea.cantidad}
               onChange={(e) => actualizarLinea(i, "cantidad", e.target.value)}
               placeholder="Cant."
-              className="border rounded-lg p-2 w-20"
+              className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 w-20"
             />
-            <button onClick={() => quitarLineaProducto(i)} className="border rounded-lg px-2 text-sm">
+            <button onClick={() => quitarLineaProducto(i)} className="rounded-lg border border-[var(--color-border)] bg-white px-2 text-sm active:scale-95 transition">
               ✕
             </button>
           </div>
         ))}
-        <button onClick={agregarLineaProducto} className="text-sm border rounded-lg px-3 py-1">
+        <button onClick={agregarLineaProducto} className="text-sm font-medium rounded-xl border border-[var(--color-border)] px-3 py-1.5 active:scale-95 transition">
           + Agregar producto
         </button>
 
-        <p className="text-xs text-gray-500 pt-2">Servicio de tercero (opcional)</p>
+        <p className="text-xs font-medium text-[var(--color-ink-soft)] pt-2 block">Servicio de tercero (opcional)</p>
         <input
           type="text"
           value={proveedorTercero}
           onChange={(e) => setProveedorTercero(e.target.value)}
           placeholder="Taller / mecánico"
-          className="border rounded-lg p-2 w-full"
+          className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
         />
         <input
           type="number"
           value={costoTercero}
           onChange={(e) => setCostoTercero(e.target.value)}
           placeholder="Costo del servicio"
-          className="border rounded-lg p-2 w-full"
+          className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
         />
         <input
           type="text"
           value={descripcionTercero}
           onChange={(e) => setDescripcionTercero(e.target.value)}
           placeholder="Descripción del servicio recibido"
-          className="border rounded-lg p-2 w-full"
+          className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
         />
 
-        <p className="text-xs text-gray-500 pt-2">Notas</p>
+        <p className="text-xs font-medium text-[var(--color-ink-soft)] pt-2 block">Notas</p>
         <input
           type="text"
           value={notas}
           onChange={(e) => setNotas(e.target.value)}
-          className="border rounded-lg p-2 w-full"
+          className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
         />
 
-        {error && <p className="text-red-600 text-sm">{error}</p>}
+        {error && <p className="text-[var(--color-danger)] text-sm">{error}</p>}
 
-        <button onClick={registrarMantenimiento} className="border rounded-lg p-2 w-full font-semibold">
+        <button onClick={registrarMantenimiento} className="w-full rounded-xl bg-[var(--color-accent)] text-white font-semibold py-2.5 active:scale-[0.98] transition">
           Guardar mantenimiento
         </button>
       </div>
 
       {/* Historial / expediente técnico */}
-      <h3 className="font-semibold text-sm mb-1">Expediente técnico (historial)</h3>
+      <h3 className="font-display font-semibold text-sm mb-1 text-[var(--color-ink)]">Expediente técnico (historial)</h3>
       <div className="space-y-2">
         {mantenimientos.map((m) => (
           <button
             key={m.id}
             onClick={() => setMantenimientoDetalle(m)}
-            className="w-full border rounded-lg p-3 text-sm text-left hover:bg-gray-50"
+            className="w-full bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4 text-sm text-left active:scale-[0.98] transition"
           >
             <div className="flex justify-between">
-              <p className="font-semibold">{m.tipo}</p>
-              <p className="text-gray-500">{m.fecha}</p>
+              <p className="font-display font-semibold text-[var(--color-ink)]">{m.tipo}</p>
+              <p className="text-[var(--color-ink-soft)]">{m.fecha}</p>
             </div>
-            <p className="text-gray-500">
+            <p className="text-[var(--color-ink-soft)]">
               {m.km ? `${Math.round(m.km).toLocaleString()} km · ` : ""}
               Costo total: {(m.costo_total ?? 0).toFixed(2)}
             </p>
           </button>
         ))}
-        {!cargando && mantenimientos.length === 0 && <p className="text-gray-500">Sin mantenimientos registrados.</p>}
+        {!cargando && mantenimientos.length === 0 && <p className="text-[var(--color-ink-soft)]">Sin mantenimientos registrados.</p>}
       </div>
     </div>
   );
@@ -1277,18 +1365,18 @@ function ExpedienteMantenimiento({ mantenimiento, onVolver }: { mantenimiento: M
       <button onClick={onVolver} className="text-sm mb-3">
         ← Volver al historial
       </button>
-      <h2 className="font-semibold mb-1">{mantenimiento.tipo}</h2>
-      <p className="text-sm text-gray-500 mb-3">
+      <h2 className="font-display font-semibold mb-1 text-[var(--color-ink)]">{mantenimiento.tipo}</h2>
+      <p className="text-sm text-[var(--color-ink-soft)] mb-3">
         {mantenimiento.fecha} {mantenimiento.km ? `· ${Math.round(mantenimiento.km).toLocaleString()} km` : ""}
       </p>
 
-      {cargando && <p className="text-gray-500">Cargando...</p>}
+      {cargando && <p className="text-[var(--color-ink-soft)]">Cargando...</p>}
 
       {detalle && (
         <>
           {detalle.productos && detalle.productos.length > 0 && (
             <div className="mb-3">
-              <p className="font-semibold text-sm mb-1">Productos usados</p>
+              <p className="font-display font-semibold text-sm mb-1 text-[var(--color-ink)]">Productos usados</p>
               {detalle.productos.map((p) => (
                 <div key={p.id} className="text-sm border-b pb-1 flex justify-between">
                   <span>
@@ -1302,19 +1390,19 @@ function ExpedienteMantenimiento({ mantenimiento, onVolver }: { mantenimiento: M
 
           {(detalle.costo_servicio_tercero ?? 0) > 0 && (
             <div className="mb-3">
-              <p className="font-semibold text-sm mb-1">Servicio de tercero</p>
+              <p className="font-display font-semibold text-sm mb-1 text-[var(--color-ink)]">Servicio de tercero</p>
               <p className="text-sm">Proveedor: {detalle.proveedor_tercero ?? "—"}</p>
               <p className="text-sm">Costo: {detalle.costo_servicio_tercero?.toFixed(2)}</p>
               {detalle.descripcion_servicio_tercero && (
-                <p className="text-sm text-gray-500">{detalle.descripcion_servicio_tercero}</p>
+                <p className="text-sm text-[var(--color-ink-soft)]">{detalle.descripcion_servicio_tercero}</p>
               )}
             </div>
           )}
 
           {detalle.notas && (
             <div className="mb-3">
-              <p className="font-semibold text-sm mb-1">Notas</p>
-              <p className="text-sm text-gray-500">{detalle.notas}</p>
+              <p className="font-display font-semibold text-sm mb-1 text-[var(--color-ink)]">Notas</p>
+              <p className="text-sm text-[var(--color-ink-soft)]">{detalle.notas}</p>
             </div>
           )}
 
@@ -1391,7 +1479,7 @@ function DetalleDocumentos({ camion, onVolver }: { camion: Camion; onVolver: () 
     return { estado: "ok", diasRestantes };
   }
 
-  const colores: Record<string, string> = { ok: "text-green-700", proximo: "text-amber-700", vencido: "text-red-700" };
+  const colores: Record<string, string> = { ok: "text-[var(--color-ok)]", proximo: "text-[var(--color-warn)]", vencido: "text-[var(--color-danger)]" };
   const iconos: Record<string, string> = { ok: "✅", proximo: "⚡", vencido: "⚠️" };
 
   return (
@@ -1399,18 +1487,18 @@ function DetalleDocumentos({ camion, onVolver }: { camion: Camion; onVolver: () 
       <button onClick={onVolver} className="text-sm mb-3">
         ← Volver a vehículos
       </button>
-      <h2 className="font-semibold mb-1">{camion.matricula || camion.nombre}</h2>
-      <p className="text-sm text-gray-500 mb-3">{camion.nombre}</p>
+      <h2 className="font-display font-semibold mb-1 text-[var(--color-ink)]">{camion.matricula || camion.nombre}</h2>
+      <p className="text-sm text-[var(--color-ink-soft)] mb-3">{camion.nombre}</p>
 
-      {cargando && <p className="text-gray-500">Cargando...</p>}
+      {cargando && <p className="text-[var(--color-ink-soft)]">Cargando...</p>}
 
       <div className="space-y-2 mb-4">
         {TIPOS_DOCUMENTO.map((td) => {
           const vigente = documentos.find((d) => d.tipo === td.id);
           const estado = vigente ? calcularEstado(vigente.fecha_caducidad) : null;
           return (
-            <div key={td.id} className="border rounded-lg p-3">
-              <p className="font-semibold text-sm">{td.label}</p>
+            <div key={td.id} className="bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4">
+              <p className="font-display font-semibold text-sm text-[var(--color-ink)]">{td.label}</p>
               {vigente ? (
                 <p className={`text-sm ${estado ? colores[estado.estado] : ""}`}>
                   {estado && iconos[estado.estado]} Vence: {vigente.fecha_caducidad}{" "}
@@ -1420,20 +1508,20 @@ function DetalleDocumentos({ camion, onVolver }: { camion: Camion; onVolver: () 
                       : `(en ${estado.diasRestantes} días)`)}
                 </p>
               ) : (
-                <p className="text-sm text-gray-500">Sin registrar</p>
+                <p className="text-sm text-[var(--color-ink-soft)]">Sin registrar</p>
               )}
             </div>
           );
         })}
       </div>
 
-      <div className="border-t pt-4">
-        <h2 className="font-semibold mb-2">Registrar / renovar documento</h2>
-        <p className="text-xs text-gray-500">Tipo</p>
+      <div className="border-t border-[var(--color-border)] pt-4">
+        <h2 className="font-display font-semibold mb-2 text-[var(--color-ink)]">Registrar / renovar documento</h2>
+        <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Tipo</p>
         <select
           value={tipoNuevo}
           onChange={(e) => setTipoNuevo(e.target.value as TipoDocumento)}
-          className="border rounded-lg p-2 w-full mb-2"
+          className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent mb-2"
         >
           {TIPOS_DOCUMENTO.map((td) => (
             <option key={td.id} value={td.id}>
@@ -1441,22 +1529,22 @@ function DetalleDocumentos({ camion, onVolver }: { camion: Camion; onVolver: () 
             </option>
           ))}
         </select>
-        <p className="text-xs text-gray-500">Fecha de emisión</p>
+        <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Fecha de emisión</p>
         <input
           type="date"
           value={fechaEmisionNueva}
           onChange={(e) => setFechaEmisionNueva(e.target.value)}
-          className="border rounded-lg p-2 w-full mb-2"
+          className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent mb-2"
         />
-        <p className="text-xs text-gray-500">Fecha de caducidad</p>
+        <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Fecha de caducidad</p>
         <input
           type="date"
           value={fechaCaducidadNueva}
           onChange={(e) => setFechaCaducidadNueva(e.target.value)}
-          className="border rounded-lg p-2 w-full mb-2"
+          className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent mb-2"
         />
-        {error && <p className="text-red-600 text-sm mb-2">{error}</p>}
-        <button onClick={registrarDocumento} className="border rounded-lg p-2 w-full font-semibold">
+        {error && <p className="text-[var(--color-danger)] text-sm mb-2">{error}</p>}
+        <button onClick={registrarDocumento} className="w-full rounded-xl bg-[var(--color-accent)] text-white font-semibold py-2.5 active:scale-[0.98] transition">
           Guardar
         </button>
       </div>
@@ -1492,29 +1580,29 @@ function PanelReportes() {
     setCargando(false);
   }
 
-  const colores: Record<string, string> = { proximo: "text-amber-700 bg-amber-50 border-amber-400", vencido: "text-red-700 bg-red-50 border-red-400" };
+  const colores: Record<string, string> = { proximo: "text-[var(--color-warn)] bg-[var(--color-warn-soft)] border-[var(--color-warn)]", vencido: "text-[var(--color-danger)] bg-[var(--color-danger-soft)] border-[var(--color-danger)]" };
   const iconos: Record<string, string> = { proximo: "⚡", vencido: "⚠️" };
 
   const sinAlertas = alertasMantenimiento.length === 0 && alertasDocumentos.length === 0 && alertasCxC.length === 0;
 
   return (
     <div>
-      <h2 className="font-semibold mb-2">Reportes y alertas</h2>
-      {cargando && <p className="text-gray-500">Cargando...</p>}
+      <h2 className="font-display font-semibold mb-2 text-[var(--color-ink)]">Reportes y alertas</h2>
+      {cargando && <p className="text-[var(--color-ink-soft)]">Cargando...</p>}
 
       {!cargando && sinAlertas && (
-        <p className="text-green-700 bg-green-50 border border-green-400 rounded-lg p-3">
+        <p className="text-[var(--color-ok)] bg-[var(--color-ok-soft)] border border-[var(--color-ok)] rounded-lg p-3">
           ✅ Todo al día. No hay alertas de mantenimiento ni documentos por vencer.
         </p>
       )}
 
       {alertasCxC.length > 0 && (
         <div className="mb-4">
-          <h3 className="font-semibold text-sm mb-2">Cuentas por cobrar envejecidas</h3>
+          <h3 className="font-display font-semibold text-sm mb-2 text-[var(--color-ink)]">Cuentas por cobrar envejecidas</h3>
           <div className="space-y-2">
             {alertasCxC.map((a) => (
-              <div key={a.id} className={`border rounded-lg p-3 ${colores[a.estado]}`}>
-                <p className="font-semibold text-sm">
+              <div key={a.id} className={`rounded-2xl shadow-sm p-4 border ${colores[a.estado]}`}>
+                <p className="font-display font-semibold text-sm text-[var(--color-ink)]">
                   {iconos[a.estado]} {a.cliente_nombre} {a.cliente_telefono ? `· ${a.cliente_telefono}` : ""}
                 </p>
                 <p className="text-sm">
@@ -1529,11 +1617,11 @@ function PanelReportes() {
 
       {alertasDocumentos.length > 0 && (
         <div className="mb-4">
-          <h3 className="font-semibold text-sm mb-2">Documentos del vehículo</h3>
+          <h3 className="font-display font-semibold text-sm mb-2 text-[var(--color-ink)]">Documentos del vehículo</h3>
           <div className="space-y-2">
             {alertasDocumentos.map((a, i) => (
-              <div key={i} className={`border rounded-lg p-3 ${colores[a.estado]}`}>
-                <p className="font-semibold text-sm">
+              <div key={i} className={`rounded-2xl shadow-sm p-4 border ${colores[a.estado]}`}>
+                <p className="font-display font-semibold text-sm text-[var(--color-ink)]">
                   {iconos[a.estado]} {a.camion_matricula || a.camion_nombre} — {LABELS_DOCUMENTO[a.tipo]}
                 </p>
                 <p className="text-sm">
@@ -1550,11 +1638,11 @@ function PanelReportes() {
 
       {alertasMantenimiento.length > 0 && (
         <div className="mb-4">
-          <h3 className="font-semibold text-sm mb-2">Mantenimiento preventivo</h3>
+          <h3 className="font-display font-semibold text-sm mb-2 text-[var(--color-ink)]">Mantenimiento preventivo</h3>
           <div className="space-y-2">
             {alertasMantenimiento.map((a, i) => (
-              <div key={i} className={`border rounded-lg p-3 ${colores[a.estado]}`}>
-                <p className="font-semibold text-sm">
+              <div key={i} className={`rounded-2xl shadow-sm p-4 border ${colores[a.estado]}`}>
+                <p className="font-display font-semibold text-sm text-[var(--color-ink)]">
                   {iconos[a.estado]} {a.camion_matricula || a.camion_nombre} — {a.tipo}
                 </p>
                 <p className="text-sm">
@@ -1603,8 +1691,8 @@ function PanelCuentasPorCobrar() {
   }
 
   function colorPorAntiguedad(dias: number) {
-    if (dias >= 30) return "border-red-400 bg-red-50";
-    if (dias >= 15) return "border-amber-400 bg-amber-50";
+    if (dias >= 30) return "border-[var(--color-danger)] bg-[var(--color-danger-soft)]";
+    if (dias >= 15) return "border-[var(--color-warn)] bg-[var(--color-warn-soft)]";
     return "";
   }
 
@@ -1614,19 +1702,19 @@ function PanelCuentasPorCobrar() {
 
   return (
     <div>
-      <h2 className="font-semibold mb-1">Cuentas por cobrar</h2>
-      <p className="text-sm text-gray-500 mb-3">
+      <h2 className="font-display font-semibold mb-1 text-[var(--color-ink)]">Cuentas por cobrar</h2>
+      <p className="text-sm text-[var(--color-ink-soft)] mb-3">
         Total pendiente: <strong>{totalPendiente.toFixed(2)}</strong>
       </p>
 
       <button
         onClick={() => setMostrarCobradas(!mostrarCobradas)}
-        className="text-sm border rounded-lg px-3 py-1 mb-3"
+        className="text-sm font-medium rounded-xl border border-[var(--color-border)] bg-white px-3 py-1.5 mb-3 active:scale-95 transition"
       >
         {mostrarCobradas ? "Ver solo pendientes" : "Ver también cobradas"}
       </button>
 
-      {cargando && <p className="text-gray-500">Cargando...</p>}
+      {cargando && <p className="text-[var(--color-ink-soft)]">Cargando...</p>}
 
       <div className="space-y-2">
         {cuentas.map((c) => {
@@ -1634,20 +1722,20 @@ function PanelCuentasPorCobrar() {
           return (
             <div
               key={c.id}
-              className={`border rounded-lg p-3 ${c.estado === "pendiente" ? colorPorAntiguedad(dias) : "opacity-60"}`}
+              className={`rounded-2xl shadow-sm p-4 border ${c.estado === "pendiente" ? colorPorAntiguedad(dias) : "opacity-60 border-[var(--color-border)]"}`}
             >
               <div className="flex justify-between items-start">
                 <div>
-                  <p className="font-semibold text-sm">{c.cliente_nombre}</p>
-                  {c.cliente_telefono && <p className="text-xs text-gray-500">{c.cliente_telefono}</p>}
-                  <p className="text-xs text-gray-500">
+                  <p className="font-display font-semibold text-sm text-[var(--color-ink)]">{c.cliente_nombre}</p>
+                  {c.cliente_telefono && <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">{c.cliente_telefono}</p>}
+                  <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">
                     {c.camion?.matricula || c.camion?.nombre || ""} · Venta: {c.fecha_venta}
                   </p>
                   {c.estado === "pendiente" && (
-                    <p className="text-xs text-gray-500">{dias} días de antigüedad</p>
+                    <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">{dias} días de antigüedad</p>
                   )}
                   {c.estado === "cobrado" && (
-                    <p className="text-xs text-green-700">✅ Cobrado el {c.fecha_cobro}</p>
+                    <p className="text-xs text-[var(--color-ok)]">✅ Cobrado el {c.fecha_cobro}</p>
                   )}
                 </div>
                 <div className="text-right">
@@ -1655,7 +1743,7 @@ function PanelCuentasPorCobrar() {
                   {c.estado === "pendiente" && (
                     <button
                       onClick={() => marcarCobrado(c.id)}
-                      className="text-xs border rounded px-2 py-1 mt-1"
+                      className="text-xs font-medium rounded-lg border border-[var(--color-border)] bg-white px-2 py-1 mt-1 active:scale-95 transition"
                     >
                       Marcar cobrado
                     </button>
@@ -1665,7 +1753,7 @@ function PanelCuentasPorCobrar() {
             </div>
           );
         })}
-        {!cargando && cuentas.length === 0 && <p className="text-gray-500">Sin cuentas por cobrar.</p>}
+        {!cargando && cuentas.length === 0 && <p className="text-[var(--color-ink-soft)]">Sin cuentas por cobrar.</p>}
       </div>
     </div>
   );
@@ -1712,20 +1800,20 @@ function PanelProvisionFondos() {
 
   return (
     <div>
-      <h2 className="font-semibold mb-2">Elegí un camión</h2>
-      {cargando && <p className="text-gray-500">Cargando...</p>}
+      <h2 className="font-display font-semibold mb-2 text-[var(--color-ink)]">Elegí un camión</h2>
+      {cargando && <p className="text-[var(--color-ink-soft)]">Cargando...</p>}
       <div className="space-y-2">
         {camiones.map((c) => (
           <button
             key={c.id}
             onClick={() => setCamionSeleccionado(c)}
-            className="w-full border rounded-lg p-3 text-left hover:bg-gray-50"
+            className="w-full bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4 text-left active:scale-[0.98] transition"
           >
-            <p className="font-semibold">{c.matricula || c.nombre}</p>
-            <p className="text-sm text-gray-500">{c.nombre}</p>
+            <p className="font-display font-semibold text-[var(--color-ink)]">{c.matricula || c.nombre}</p>
+            <p className="text-sm text-[var(--color-ink-soft)]">{c.nombre}</p>
           </button>
         ))}
-        {!cargando && camiones.length === 0 && <p className="text-gray-500">No hay camiones cargados todavía.</p>}
+        {!cargando && camiones.length === 0 && <p className="text-[var(--color-ink-soft)]">No hay camiones cargados todavía.</p>}
       </div>
     </div>
   );
@@ -1742,12 +1830,12 @@ function Campo({
 }) {
   return (
     <div className="mb-2">
-      <p className="text-xs text-gray-500">{label}</p>
+      <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">{label}</p>
       <input
         type="number"
         value={valor ?? ""}
         onChange={(e) => onChange(e.target.value)}
-        className="border rounded-lg p-2 w-full"
+        className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
       />
     </div>
   );
@@ -1875,31 +1963,31 @@ function FormularioProvision({ camion, onVolver }: { camion: Camion; onVolver: (
       <button onClick={onVolver} className="text-sm mb-3">
         ← Volver a camiones
       </button>
-      <h2 className="font-semibold mb-1">{camion.matricula || camion.nombre}</h2>
-      <p className="text-sm text-gray-500 mb-3">{camion.nombre}</p>
+      <h2 className="font-display font-semibold mb-1 text-[var(--color-ink)]">{camion.matricula || camion.nombre}</h2>
+      <p className="text-sm text-[var(--color-ink-soft)] mb-3">{camion.nombre}</p>
 
-      {cargando && <p className="text-gray-500">Cargando...</p>}
+      {cargando && <p className="text-[var(--color-ink-soft)]">Cargando...</p>}
 
       {!cargando && !modoEdicion && (
         <div>
-          <div className="border rounded-lg p-3 mb-3">
+          <div className="bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4 mb-3">
             <p className="text-sm">
               Km recorridos al mes: <strong>{kmRecorridosMes.toLocaleString()}</strong>
             </p>
             <p className="text-sm">Subtotal fijo diario: {subtotalFijo.toFixed(2)}</p>
             <p className="text-sm">Subtotal variable diario: {subtotalVariable.toFixed(2)}</p>
           </div>
-          <div className="border-2 border-black rounded-lg p-3 mb-4">
+          <div className="border-2 border-[var(--color-accent)] rounded-lg p-3 mb-4">
             <p className="font-bold">Provisión diaria total: {provisionDiaria.toFixed(2)}</p>
           </div>
 
-          <div className="border rounded-lg p-3 mb-3">
+          <div className="bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4 mb-3">
             <div className="flex justify-between items-center mb-2">
-              <p className="font-semibold text-sm">Mayor de provisión (saldo acreedor)</p>
+              <p className="font-display font-semibold text-sm text-[var(--color-ink)]">Mayor de provisión (saldo acreedor)</p>
               <button
                 onClick={acreditarHoy}
                 disabled={acreditando}
-                className="text-xs border rounded px-2 py-1"
+                className="text-xs font-medium rounded-lg border border-[var(--color-border)] px-2.5 py-1.5 active:scale-95 transition"
               >
                 {acreditando ? "Acreditando..." : "Acreditar hoy"}
               </button>
@@ -1916,12 +2004,12 @@ function FormularioProvision({ camion, onVolver }: { camion: Camion; onVolver: (
               <span>Saldo total acreedor</span>
               <span>{saldoTotal.toFixed(2)}</span>
             </div>
-            <p className="text-xs text-gray-500 mt-2">
+            <p className="text-xs text-[var(--color-ink-soft)] mt-2">
               Este saldo se debita desde la pestaña Finanzas cuando efectivamente se gasta en cada rubro.
             </p>
           </div>
 
-          <button onClick={() => setModoEdicion(true)} className="border rounded-lg p-2 w-full font-semibold">
+          <button onClick={() => setModoEdicion(true)} className="w-full rounded-xl bg-[var(--color-accent)] text-white font-semibold py-2.5 active:scale-[0.98] transition">
             Editar
           </button>
         </div>
@@ -1930,8 +2018,8 @@ function FormularioProvision({ camion, onVolver }: { camion: Camion; onVolver: (
       {!cargando && modoEdicion && (
         <>
       {/* Km recorridos */}
-      <div className="border rounded-lg p-3 mb-3">
-        <p className="font-semibold text-sm mb-2">Km recorridos</p>
+      <div className="bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4 mb-3">
+        <p className="font-display font-semibold text-sm mb-2 text-[var(--color-ink)]">Km recorridos</p>
         <Campo label="Días de trabajo al mes (a)" valor={datos.diasTrabajoMes} onChange={(v) => set("diasTrabajoMes", v)} />
         <Campo label="Posibles viajes por día (b)" valor={datos.posiblesViajes} onChange={(v) => set("posiblesViajes", v)} />
         <Campo label="Promedio km recorridos por viaje (c)" valor={datos.promedioKm} onChange={(v) => set("promedioKm", v)} />
@@ -1941,35 +2029,35 @@ function FormularioProvision({ camion, onVolver }: { camion: Camion; onVolver: (
       </div>
 
       {/* Costos fijos */}
-      <div className="border rounded-lg p-3 mb-3">
-        <p className="font-semibold text-sm mb-2">Otros costos fijos (depreciación diaria)</p>
+      <div className="bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4 mb-3">
+        <p className="font-display font-semibold text-sm mb-2 text-[var(--color-ink)]">Otros costos fijos (depreciación diaria)</p>
 
-        <p className="text-xs font-semibold text-gray-600 mt-2">Vehículo</p>
+        <p className="text-xs font-semibold text-[var(--color-accent-dark)] mt-2 uppercase tracking-wide">Vehículo</p>
         <Campo label="Valor de compra (d)" valor={datos.valorVehiculo} onChange={(v) => set("valorVehiculo", v)} />
         <Campo label="Vida útil en años (e)" valor={datos.vidaUtilVehiculo} onChange={(v) => set("vidaUtilVehiculo", v)} />
-        <p className="text-xs text-gray-500">Depreciación diaria: {depVehiculo.toFixed(2)}</p>
+        <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Depreciación diaria: {depVehiculo.toFixed(2)}</p>
 
-        <p className="text-xs font-semibold text-gray-600 mt-3">Neumáticos</p>
+        <p className="text-xs font-semibold text-[var(--color-accent-dark)] mt-3 uppercase tracking-wide">Neumáticos</p>
         <Campo label="Valor de compra (f)" valor={datos.valorNeumaticos} onChange={(v) => set("valorNeumaticos", v)} />
         <Campo label="Vida útil (g)" valor={datos.vidaUtilNeumaticos} onChange={(v) => set("vidaUtilNeumaticos", v)} />
-        <p className="text-xs text-gray-500">Depreciación diaria: {depNeumaticos.toFixed(2)}</p>
+        <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Depreciación diaria: {depNeumaticos.toFixed(2)}</p>
 
-        <p className="text-xs font-semibold text-gray-600 mt-3">Baterías</p>
+        <p className="text-xs font-semibold text-[var(--color-accent-dark)] mt-3 uppercase tracking-wide">Baterías</p>
         <Campo label="Valor de compra (h)" valor={datos.valorBaterias} onChange={(v) => set("valorBaterias", v)} />
         <Campo label="Vida útil (i)" valor={datos.vidaUtilBaterias} onChange={(v) => set("vidaUtilBaterias", v)} />
-        <p className="text-xs text-gray-500">Depreciación diaria: {depBaterias.toFixed(2)}</p>
+        <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Depreciación diaria: {depBaterias.toFixed(2)}</p>
 
-        <p className="text-xs font-semibold text-gray-600 mt-3">Inspección técnica</p>
+        <p className="text-xs font-semibold text-[var(--color-accent-dark)] mt-3 uppercase tracking-wide">Inspección técnica</p>
         <Campo label="Valor de compra (j)" valor={datos.valorInspeccion} onChange={(v) => set("valorInspeccion", v)} />
         <Campo label="Vida útil (k)" valor={datos.vidaUtilInspeccion} onChange={(v) => set("vidaUtilInspeccion", v)} />
-        <p className="text-xs text-gray-500">Depreciación diaria: {depInspeccion.toFixed(2)}</p>
+        <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Depreciación diaria: {depInspeccion.toFixed(2)}</p>
 
-        <p className="text-xs font-semibold text-gray-600 mt-3">Seguro</p>
+        <p className="text-xs font-semibold text-[var(--color-accent-dark)] mt-3 uppercase tracking-wide">Seguro</p>
         <Campo label="Valor de compra (l)" valor={datos.valorSeguro} onChange={(v) => set("valorSeguro", v)} />
         <Campo label="Vida útil (m)" valor={datos.vidaUtilSeguro} onChange={(v) => set("vidaUtilSeguro", v)} />
-        <p className="text-xs text-gray-500">Depreciación diaria: {depSeguro.toFixed(2)}</p>
+        <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Depreciación diaria: {depSeguro.toFixed(2)}</p>
 
-        <p className="text-xs font-semibold text-gray-600 mt-3">Carta de alquiler</p>
+        <p className="text-xs font-semibold text-[var(--color-accent-dark)] mt-3 uppercase tracking-wide">Carta de alquiler</p>
         <Campo
           label="Valor de compra (n)"
           valor={datos.valorCartaAlquiler}
@@ -1980,16 +2068,16 @@ function FormularioProvision({ camion, onVolver }: { camion: Camion; onVolver: (
           valor={datos.vidaUtilCartaAlquiler}
           onChange={(v) => set("vidaUtilCartaAlquiler", v)}
         />
-        <p className="text-xs text-gray-500">Depreciación diaria: {depCartaAlquiler.toFixed(2)}</p>
+        <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Depreciación diaria: {depCartaAlquiler.toFixed(2)}</p>
 
         <p className="font-bold text-sm pt-3 border-t mt-2">Subtotal fijo diario: {subtotalFijo.toFixed(2)}</p>
       </div>
 
       {/* Costos variables planificables */}
-      <div className="border rounded-lg p-3 mb-3">
-        <p className="font-semibold text-sm mb-2">Costos variables planificables</p>
+      <div className="bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4 mb-3">
+        <p className="font-display font-semibold text-sm mb-2 text-[var(--color-ink)]">Costos variables planificables</p>
 
-        <p className="text-xs font-semibold text-gray-600">Cambio de aceite</p>
+        <p className="text-xs font-semibold text-[var(--color-accent-dark)] uppercase tracking-wide">Cambio de aceite</p>
         <Campo label="Valor de compra del aceite (p)" valor={datos.valorAceite} onChange={(v) => set("valorAceite", v)} />
         <Campo label="Capacidad del envase (q)" valor={datos.capacidadEnvase} onChange={(v) => set("capacidadEnvase", v)} />
         <Campo label="Capacidad del motor (r)" valor={datos.capacidadMotor} onChange={(v) => set("capacidadMotor", v)} />
@@ -1998,41 +2086,41 @@ function FormularioProvision({ camion, onVolver }: { camion: Camion; onVolver: (
           valor={datos.kmCambioAceite}
           onChange={(v) => set("kmCambioAceite", v)}
         />
-        <p className="text-xs text-gray-500">Óleo diario: {aceite.toFixed(2)}</p>
+        <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Óleo diario: {aceite.toFixed(2)}</p>
 
         <Campo label="Valor de compra del filtro (t)" valor={datos.valorFiltro} onChange={(v) => set("valorFiltro", v)} />
-        <p className="text-xs text-gray-500">Filtros diario: {filtros.toFixed(2)}</p>
+        <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Filtros diario: {filtros.toFixed(2)}</p>
 
         <Campo
           label="Valor de compra otros materiales (u)"
           valor={datos.valorOtroMaterial}
           onChange={(v) => set("valorOtroMaterial", v)}
         />
-        <p className="text-xs text-gray-500">Otros diario: {otrosMateriales.toFixed(2)}</p>
+        <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Otros diario: {otrosMateriales.toFixed(2)}</p>
 
-        <p className="text-xs font-semibold text-gray-600 mt-3">Otras roturas estimadas (valor anual)</p>
+        <p className="text-xs font-semibold text-[var(--color-accent-dark)] mt-3 uppercase tracking-wide">Otras roturas estimadas (valor anual)</p>
         <Campo label="Chapistería" valor={datos.valorChapisteria} onChange={(v) => set("valorChapisteria", v)} />
-        <p className="text-xs text-gray-500">Diario: {chapisteriaDiaria.toFixed(2)}</p>
+        <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Diario: {chapisteriaDiaria.toFixed(2)}</p>
         <Campo label="Pintura" valor={datos.valorPintura} onChange={(v) => set("valorPintura", v)} />
-        <p className="text-xs text-gray-500">Diario: {pinturaDiaria.toFixed(2)}</p>
+        <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Diario: {pinturaDiaria.toFixed(2)}</p>
         <Campo label="Arreglos de motor" valor={datos.valorArreglosMotor} onChange={(v) => set("valorArreglosMotor", v)} />
-        <p className="text-xs text-gray-500">Diario: {arreglosMotorDiaria.toFixed(2)}</p>
+        <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Diario: {arreglosMotorDiaria.toFixed(2)}</p>
         <Campo label="Otras roturas" valor={datos.valorOtrasRoturas} onChange={(v) => set("valorOtrasRoturas", v)} />
-        <p className="text-xs text-gray-500">Diario: {otrasRoturasDiaria.toFixed(2)}</p>
+        <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Diario: {otrasRoturasDiaria.toFixed(2)}</p>
 
         <p className="font-bold text-sm pt-3 border-t mt-2">Subtotal variable diario: {subtotalVariable.toFixed(2)}</p>
       </div>
 
-      <div className="border-2 border-black rounded-lg p-3 mb-4">
+      <div className="border-2 border-[var(--color-accent)] rounded-lg p-3 mb-4">
         <p className="font-bold">Provisión diaria total: {provisionDiaria.toFixed(2)}</p>
       </div>
 
-      <button onClick={guardar} disabled={guardando} className="border rounded-lg p-2 w-full font-semibold">
+      <button onClick={guardar} disabled={guardando} className="w-full rounded-xl bg-[var(--color-accent)] text-white font-semibold py-2.5 active:scale-[0.98] transition">
         {guardando ? "Guardando..." : guardado ? "✓ Guardado" : "Guardar datos"}
       </button>
       <button
         onClick={() => setModoEdicion(false)}
-        className="border rounded-lg p-2 w-full font-semibold mt-2"
+        className="w-full rounded-xl border border-[var(--color-border)] bg-white text-[var(--color-ink)] font-semibold py-2.5 mt-2 active:scale-[0.98] transition"
       >
         Cancelar
       </button>
@@ -2058,7 +2146,7 @@ function FilaFlujo({ label, valor, negrita, negativo }: { label: string; valor: 
   return (
     <div className={`flex justify-between border-b pb-1 ${negrita ? "font-bold" : ""}`}>
       <span>{label}</span>
-      <span className={negativo ? "text-red-600" : ""}>
+      <span className={negativo ? "text-[var(--color-danger)]" : ""}>
         {negativo ? "-" : ""}
         {Math.abs(valor).toFixed(2)}
       </span>
@@ -2157,7 +2245,7 @@ function PanelFinanzas() {
   }
 
   if (cargando || !resumen || !graficos) {
-    return <p className="text-gray-500">Cargando...</p>;
+    return <p className="text-[var(--color-ink-soft)]">Cargando...</p>;
   }
 
   const paso = resumen[modo];
@@ -2185,18 +2273,18 @@ function PanelFinanzas() {
 
   return (
     <div>
-      <h2 className="font-semibold mb-2">Finanzas</h2>
+      <h2 className="font-display font-semibold mb-2 text-[var(--color-ink)]">Finanzas</h2>
 
       <div className="flex gap-2 mb-3">
         <button
           onClick={() => setModo("diario")}
-          className={`border rounded-lg px-3 py-1 text-sm font-semibold ${modo === "diario" ? "bg-black text-white" : ""}`}
+          className={`rounded-xl px-3 py-1.5 text-sm font-semibold border transition ${modo === "diario" ? "bg-[var(--color-accent)] text-white border-[var(--color-accent)]" : "bg-white border-[var(--color-border)] text-[var(--color-ink)]"}`}
         >
           Hoy
         </button>
         <button
           onClick={() => setModo("acumulado")}
-          className={`border rounded-lg px-3 py-1 text-sm font-semibold ${modo === "acumulado" ? "bg-black text-white" : ""}`}
+          className={`rounded-xl px-3 py-1.5 text-sm font-semibold border transition ${modo === "acumulado" ? "bg-[var(--color-accent)] text-white border-[var(--color-accent)]" : "bg-white border-[var(--color-border)] text-[var(--color-ink)]"}`}
         >
           Acumulado
         </button>
@@ -2204,29 +2292,29 @@ function PanelFinanzas() {
 
       {/* Tarjetas resumen */}
       <div className="grid grid-cols-2 gap-2 mb-4">
-        <div className={`border rounded-lg p-3 ${paso.utilidadReal >= 0 ? "bg-green-50 border-green-400" : "bg-red-50 border-red-400"}`}>
-          <p className="text-xs text-gray-500">Utilidad real</p>
-          <p className={`font-bold text-lg ${paso.utilidadReal >= 0 ? "text-green-700" : "text-red-700"}`}>
+        <div className={`rounded-2xl shadow-sm p-4 border ${paso.utilidadReal >= 0 ? "bg-[var(--color-ok-soft)] border-[var(--color-ok)]" : "bg-[var(--color-danger-soft)] border-[var(--color-danger)]"}`}>
+          <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Utilidad real</p>
+          <p className={`font-bold text-lg ${paso.utilidadReal >= 0 ? "text-[var(--color-ok)]" : "text-[var(--color-danger)]"}`}>
             {paso.utilidadReal.toFixed(2)}
           </p>
         </div>
-        <div className="border rounded-lg p-3">
-          <p className="text-xs text-gray-500">Margen</p>
+        <div className="bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4">
+          <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Margen</p>
           <p className="font-bold text-lg">{margen.toFixed(1)}%</p>
         </div>
-        <div className="border rounded-lg p-3">
-          <p className="text-xs text-gray-500">Efectivo real a operar</p>
+        <div className="bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4">
+          <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Efectivo real a operar</p>
           <p className="font-bold text-lg">{paso.efectivoRealAOperar.toFixed(2)}</p>
         </div>
-        <div className="border rounded-lg p-3">
-          <p className="text-xs text-gray-500">Ingresos</p>
+        <div className="bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4">
+          <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Ingresos</p>
           <p className="font-bold text-lg">{paso.ingresosTotal.toFixed(2)}</p>
         </div>
       </div>
 
       {/* Flujo completo de 9 pasos */}
-      <div className="border rounded-lg p-3 mb-4 space-y-1">
-        <p className="font-semibold text-sm mb-2">Flujo de caja ({modo})</p>
+      <div className="bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4 mb-4 space-y-1">
+        <p className="font-display font-semibold text-sm mb-2 text-[var(--color-ink)]">Flujo de caja ({modo})</p>
         <FilaFlujo label="1. Capital inyectado" valor={paso.capitalInyectado} />
         <FilaFlujo label="2. Ingresos (efec.+transf.)" valor={paso.ingresosEfectivoTransferencia} />
         <FilaFlujo label="   Ingresos (cxc cobradas)" valor={paso.ingresosCuentasCobradas} />
@@ -2240,8 +2328,8 @@ function PanelFinanzas() {
       </div>
 
       {/* Gráfico de flujo */}
-      <div className="border rounded-lg p-3 mb-4">
-        <p className="font-semibold text-sm mb-2">Gráfico del flujo de caja</p>
+      <div className="bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4 mb-4">
+        <p className="font-display font-semibold text-sm mb-2 text-[var(--color-ink)]">Gráfico del flujo de caja</p>
         <ResponsiveContainer width="100%" height={220}>
           <BarChart data={datosFlujo}>
             <CartesianGrid strokeDasharray="3 3" />
@@ -2259,8 +2347,8 @@ function PanelFinanzas() {
 
       {/* Comparativo por camión */}
       {graficos.comparativoPorCamion.length > 0 && (
-        <div className="border rounded-lg p-3 mb-4">
-          <p className="font-semibold text-sm mb-2">Comparativo por camión</p>
+        <div className="bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4 mb-4">
+          <p className="font-display font-semibold text-sm mb-2 text-[var(--color-ink)]">Comparativo por camión</p>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={graficos.comparativoPorCamion.map((c) => ({ name: c.camion_matricula || c.camion_nombre, Ingresos: c.ingresos, Gastos: c.gastos, Utilidad: c.utilidad }))}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -2278,15 +2366,15 @@ function PanelFinanzas() {
 
       {/* Ranking de rentabilidad */}
       {graficos.comparativoPorCamion.length > 0 && (
-        <div className="border rounded-lg p-3 mb-4">
-          <p className="font-semibold text-sm mb-2">Ranking de rentabilidad (por litro vendido)</p>
+        <div className="bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4 mb-4">
+          <p className="font-display font-semibold text-sm mb-2 text-[var(--color-ink)]">Ranking de rentabilidad (por litro vendido)</p>
           <div className="space-y-1">
             {graficos.comparativoPorCamion.map((c, i) => (
               <div key={c.camion_id} className="flex justify-between text-sm">
                 <span>
                   {i + 1}. {c.camion_matricula || c.camion_nombre}
                 </span>
-                <span className={c.utilidadPorLitro >= 0 ? "text-green-700" : "text-red-700"}>
+                <span className={c.utilidadPorLitro >= 0 ? "text-[var(--color-ok)]" : "text-[var(--color-danger)]"}>
                   {c.utilidadPorLitro >= 0 ? "Gana" : "Pierde"} {Math.abs(c.utilidadPorLitro).toFixed(2)} / L
                 </span>
               </div>
@@ -2296,8 +2384,8 @@ function PanelFinanzas() {
       )}
 
       {/* Tendencia acumulada */}
-      <div className="border rounded-lg p-3 mb-4">
-        <p className="font-semibold text-sm mb-2">Tendencia (últimos 30 días)</p>
+      <div className="bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4 mb-4">
+        <p className="font-display font-semibold text-sm mb-2 text-[var(--color-ink)]">Tendencia (últimos 30 días)</p>
         <ResponsiveContainer width="100%" height={220}>
           <LineChart data={graficos.tendencia}>
             <CartesianGrid strokeDasharray="3 3" />
@@ -2311,8 +2399,8 @@ function PanelFinanzas() {
 
       {/* Composición de gastos */}
       {datosTorta.length > 0 && (
-        <div className="border rounded-lg p-3 mb-4">
-          <p className="font-semibold text-sm mb-2">Composición de gastos (histórico)</p>
+        <div className="bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4 mb-4">
+          <p className="font-display font-semibold text-sm mb-2 text-[var(--color-ink)]">Composición de gastos (histórico)</p>
           <ResponsiveContainer width="100%" height={220}>
             <PieChart>
               <Pie data={datosTorta} dataKey="value" nameKey="name" outerRadius={70} label={{ fontSize: 10 }}>
@@ -2328,14 +2416,14 @@ function PanelFinanzas() {
       )}
 
       {/* Registrar movimiento */}
-      <div className="border rounded-lg p-3 mb-4 space-y-2">
-        <p className="font-semibold text-sm">Registrar movimiento</p>
+      <div className="bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4 mb-4 space-y-2">
+        <p className="font-display font-semibold text-sm text-[var(--color-ink)]">Registrar movimiento</p>
 
-        <p className="text-xs text-gray-500">Tipo</p>
+        <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Tipo</p>
         <select
           value={tipo}
           onChange={(e) => setTipo(e.target.value as TipoFinanzasMovimiento)}
-          className="border rounded-lg p-2 w-full"
+          className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
         >
           {Object.entries(LABELS_TIPO_FINANZAS).map(([id, label]) => (
             <option key={id} value={id}>
@@ -2346,8 +2434,8 @@ function PanelFinanzas() {
 
         {(tipo === "gasto_servicio_tercero" || tipo === "gasto_otro" || tipo === "capital_inyectado") && (
           <>
-            <p className="text-xs text-gray-500">Camión (opcional si es general)</p>
-            <select value={camionId} onChange={(e) => setCamionId(e.target.value)} className="border rounded-lg p-2 w-full">
+            <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Camión (opcional si es general)</p>
+            <select value={camionId} onChange={(e) => setCamionId(e.target.value)} className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent">
               <option value="">General (no es de un camión específico)</option>
               {camiones.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -2360,7 +2448,7 @@ function PanelFinanzas() {
 
         {tipo === "gasto_insumo" && (
           <>
-            <p className="text-xs text-gray-500">Producto</p>
+            <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Producto</p>
             <select
               value={productoId}
               onChange={(e) => {
@@ -2370,7 +2458,7 @@ function PanelFinanzas() {
                   setProductoNuevoUnidad("");
                 }
               }}
-              className="border rounded-lg p-2 w-full"
+              className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
             >
               <option value="">
                 {productos.length > 0 ? "Elegir producto existente" : "No hay productos todavía"}
@@ -2384,32 +2472,32 @@ function PanelFinanzas() {
 
             {!productoId && (
               <>
-                <p className="text-xs text-gray-500 pt-1">O escribí el nombre de un producto nuevo</p>
+                <p className="text-xs font-medium text-[var(--color-ink-soft)] pt-1 block">O escribí el nombre de un producto nuevo</p>
                 <input
                   type="text"
                   value={productoNuevoNombre}
                   onChange={(e) => setProductoNuevoNombre(e.target.value)}
                   placeholder="Ej: Aceite 15W40"
-                  className="border rounded-lg p-2 w-full"
+                  className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
                 />
                 <input
                   type="text"
                   value={productoNuevoUnidad}
                   onChange={(e) => setProductoNuevoUnidad(e.target.value)}
                   placeholder="Unidad (litro, unidad, kg...) opcional"
-                  className="border rounded-lg p-2 w-full"
+                  className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
                 />
               </>
             )}
 
-            <p className="text-xs text-gray-500 pt-1">Cantidad comprada</p>
+            <p className="text-xs font-medium text-[var(--color-ink-soft)] pt-1 block">Cantidad comprada</p>
             <input
               type="number"
               value={cantidad}
               onChange={(e) => setCantidad(e.target.value)}
-              className="border rounded-lg p-2 w-full"
+              className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
             />
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-[var(--color-ink-soft)] opacity-70">
               El precio del producto en Inventario se actualiza como promedio ponderado, no se pisa.
             </p>
           </>
@@ -2417,11 +2505,11 @@ function PanelFinanzas() {
 
         {tipo === "gasto_servicio_tercero" && (
           <>
-            <p className="text-xs text-gray-500">Tipo de mantenimiento</p>
+            <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Tipo de mantenimiento</p>
             <select
               value={tipoMantenimiento}
               onChange={(e) => setTipoMantenimiento(e.target.value)}
-              className="border rounded-lg p-2 w-full"
+              className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
             >
               {TIPOS_MANTENIMIENTO.map((t) => (
                 <option key={t} value={t}>
@@ -2429,20 +2517,20 @@ function PanelFinanzas() {
                 </option>
               ))}
             </select>
-            <p className="text-xs text-gray-500">Proveedor / taller</p>
+            <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Proveedor / taller</p>
             <input
               type="text"
               value={proveedor}
               onChange={(e) => setProveedor(e.target.value)}
-              className="border rounded-lg p-2 w-full"
+              className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
             />
           </>
         )}
 
         {(tipo === "gasto_servicio_tercero" || tipo === "gasto_otro") && (
           <>
-            <p className="text-xs text-gray-500">Debitar de la Provisión (opcional)</p>
-            <select value={submayor} onChange={(e) => setSubmayor(e.target.value)} className="border rounded-lg p-2 w-full">
+            <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Debitar de la Provisión (opcional)</p>
+            <select value={submayor} onChange={(e) => setSubmayor(e.target.value)} className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent">
               <option value="">No debitar de la provisión</option>
               {SUBMAYORES_PROVISION.map((s) => (
                 <option key={s} value={s}>
@@ -2453,20 +2541,20 @@ function PanelFinanzas() {
           </>
         )}
 
-        <p className="text-xs text-gray-500">Monto</p>
-        <input type="number" value={monto} onChange={(e) => setMonto(e.target.value)} className="border rounded-lg p-2 w-full" />
+        <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Monto</p>
+        <input type="number" value={monto} onChange={(e) => setMonto(e.target.value)} className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent" />
 
-        <p className="text-xs text-gray-500">Descripción / observaciones</p>
+        <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Descripción / observaciones</p>
         <input
           type="text"
           value={descripcion}
           onChange={(e) => setDescripcion(e.target.value)}
-          className="border rounded-lg p-2 w-full"
+          className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
         />
 
-        {error && <p className="text-red-600 text-sm">{error}</p>}
+        {error && <p className="text-[var(--color-danger)] text-sm">{error}</p>}
 
-        <button onClick={registrar} disabled={guardando} className="border rounded-lg p-2 w-full font-semibold">
+        <button onClick={registrar} disabled={guardando} className="w-full rounded-xl bg-[var(--color-accent)] text-white font-semibold py-2.5 active:scale-[0.98] transition">
           {guardando ? "Guardando..." : "Registrar"}
         </button>
       </div>
