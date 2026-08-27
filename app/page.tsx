@@ -195,7 +195,7 @@ export default function Home() {
   if (pideNombre) {
     return (
       <main className="min-h-screen p-6 max-w-md mx-auto flex flex-col justify-center gap-4">
-        <h1 className="font-display text-2xl font-bold text-[var(--color-ink)]">{camion.nombre}</h1>
+        <h1 className="font-display text-2xl font-bold text-[var(--color-ink)]">{camion.matricula || camion.nombre}</h1>
         <p className="text-sm text-[var(--color-ink-soft)]">¿Quién maneja hoy?</p>
         <input
           type="text"
@@ -223,7 +223,7 @@ export default function Home() {
     <main className="min-h-screen p-4 max-w-md mx-auto" style={{ background: "var(--color-bg)" }}>
       <h1 className="font-display text-3xl font-bold mb-1 text-[var(--color-ink)]">CONTROL DE RUTA</h1>
       <p className="text-[var(--color-ink-soft)] mb-2">
-        {turno.chofer_nombre} · {camion.nombre}
+        {turno.chofer_nombre} · {camion.matricula || camion.nombre}
       </p>
       <p className="mb-4">
         Agua en existencia: <strong>{camion.litros_actual.toFixed(2)} L</strong> / {camion.capacidad_litros.toFixed(2)} L
