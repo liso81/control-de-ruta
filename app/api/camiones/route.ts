@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const { data, error } = await supabaseAdmin
     .from("camiones")
-    .select("id, nombre, capacidad_litros, litros_actual")
+    .select("*")
     .order("nombre");
 
   if (error) {
