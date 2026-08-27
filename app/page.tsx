@@ -159,31 +159,34 @@ export default function Home() {
 
   if (cargando) {
     return (
-      <main className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-500">Cargando...</p>
+      <main className="min-h-screen flex items-center justify-center" style={{ background: "var(--color-bg)" }}>
+        <p className="text-[var(--color-ink-soft)]">Cargando...</p>
       </main>
     );
   }
 
   if (!camion) {
     return (
-      <main className="min-h-screen p-6 max-w-md mx-auto">
-        <h1 className="text-2xl font-bold mb-4">Vincular este dispositivo</h1>
-        <p className="text-sm text-gray-600 mb-4">Elegí a qué camión pertenece este teléfono. Esta elección queda guardada.</p>
+      <main className="min-h-screen p-6 max-w-md mx-auto" style={{ background: "var(--color-bg)" }}>
+        <div className="w-12 h-12 rounded-2xl bg-[var(--color-accent)] flex items-center justify-center mb-5">
+          <span className="text-white text-xl font-display font-bold">CR</span>
+        </div>
+        <h1 className="font-display text-2xl font-bold mb-1 text-[var(--color-ink)]">Vincular este dispositivo</h1>
+        <p className="text-sm text-[var(--color-ink-soft)] mb-5">Elegí a qué camión pertenece este teléfono. Esta elección queda guardada.</p>
         <div className="space-y-2">
           {camiones.map((c) => (
             <button
               key={c.id}
               onClick={() => vincularCamion(c)}
-              className="w-full border rounded-lg p-4 text-left hover:bg-gray-50"
+              className="w-full bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4 text-left active:scale-[0.98] transition"
             >
-              <div className="font-semibold">{c.matricula || c.nombre}</div>
-              <div className="text-sm text-gray-500">
+              <div className="font-display font-semibold text-[var(--color-ink)]">{c.matricula || c.nombre}</div>
+              <div className="text-sm text-[var(--color-ink-soft)]">
                 {c.nombre} · {c.litros_actual.toFixed(2)} L / {c.capacidad_litros.toFixed(2)} L
               </div>
             </button>
           ))}
-          {camiones.length === 0 && <p className="text-gray-500">No hay camiones cargados todavía.</p>}
+          {camiones.length === 0 && <p className="text-[var(--color-ink-soft)]">No hay camiones cargados todavía.</p>}
         </div>
       </main>
     );
@@ -192,16 +195,16 @@ export default function Home() {
   if (pideNombre) {
     return (
       <main className="min-h-screen p-6 max-w-md mx-auto flex flex-col justify-center gap-4">
-        <h1 className="text-2xl font-bold">{camion.nombre}</h1>
-        <p className="text-sm text-gray-600">¿Quién maneja hoy?</p>
+        <h1 className="font-display text-2xl font-bold text-[var(--color-ink)]">{camion.nombre}</h1>
+        <p className="text-sm text-[var(--color-ink-soft)]">¿Quién maneja hoy?</p>
         <input
           type="text"
           value={nombreInput}
           onChange={(e) => setNombreInput(e.target.value)}
           placeholder="Nombre del chofer"
-          className="border rounded-lg p-3"
+          className="bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4"
         />
-        <button onClick={confirmarNombre} className="bg-black text-white rounded-lg p-3 font-semibold">
+        <button onClick={confirmarNombre} className="bg-[var(--color-accent)] text-white rounded-lg p-3 font-semibold">
           Empezar turno
         </button>
       </main>
@@ -211,15 +214,15 @@ export default function Home() {
   if (!turno) {
     return (
       <main className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-500">Cargando turno...</p>
+        <p className="text-[var(--color-ink-soft)]">Cargando turno...</p>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen p-4 max-w-md mx-auto">
-      <h1 className="text-3xl font-black mb-1">CONTROL DE RUTA</h1>
-      <p className="text-gray-600 mb-2">
+    <main className="min-h-screen p-4 max-w-md mx-auto" style={{ background: "var(--color-bg)" }}>
+      <h1 className="font-display text-3xl font-bold mb-1 text-[var(--color-ink)]">CONTROL DE RUTA</h1>
+      <p className="text-[var(--color-ink-soft)] mb-2">
         {turno.chofer_nombre} · {camion.nombre}
       </p>
       <p className="mb-4">
@@ -231,14 +234,14 @@ export default function Home() {
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`border rounded-lg p-2 text-sm capitalize ${tab === t ? "bg-black text-white" : ""}`}
+            className={`rounded-xl px-3 py-2 text-sm font-medium capitalize border transition ${tab === t ? "bg-[var(--color-accent)] text-white border-[var(--color-accent)]" : "bg-white border-[var(--color-border)] text-[var(--color-ink)]"}`}
           >
             {t}
           </button>
         ))}
       </div>
 
-      {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
+      {error && <p className="text-[var(--color-danger)] text-sm mb-3">{error}</p>}
 
       {tab === "resumen" && (
         <TabResumen
@@ -353,10 +356,10 @@ function TabResumen({
       <Fila label="Efectivo disponible" valor={efectivoDisponible} negrita />
 
       {alertas.length > 0 && (
-        <div className="border border-amber-400 bg-amber-50 rounded-lg p-3 mt-2">
-          <p className="font-semibold text-amber-800">⚠️ Alertas de litros sobrantes hoy</p>
+        <div className="border border-[var(--color-warn)] bg-[var(--color-warn-soft)] rounded-lg p-3 mt-2">
+          <p className="font-semibold text-[var(--color-warn)]">⚠️ Alertas de litros sobrantes hoy</p>
           {alertas.map((a) => (
-            <p key={a.id} className="text-sm text-amber-800">
+            <p key={a.id} className="text-sm text-[var(--color-warn)]">
               {a.litros?.toFixed(2)} L sin vender
               {a.monto ? ` · ≈ ${a.monto.toFixed(2)} dejados de ganar` : ""}
             </p>
@@ -367,21 +370,21 @@ function TabResumen({
       {!cerrado && (
         <>
           <div className="pt-3">
-            <p className="font-semibold">Fondo que te dio el dueño hoy</p>
+            <p className="font-display font-semibold text-[var(--color-ink)]">Fondo que te dio el dueño hoy</p>
             <div className="flex gap-2 mt-1">
               <input
                 type="number"
                 value={fondoInput}
                 onChange={(e) => setFondoInput(e.target.value)}
                 placeholder="0.00"
-                className="border rounded-lg p-2 flex-1"
+                className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 flex-1"
               />
               <button
                 onClick={() => {
                   onGuardarFondo(parseFloat(fondoInput) || 0);
                   setFondoInput("");
                 }}
-                className="border rounded-lg px-3 font-semibold"
+                className="rounded-xl border border-[var(--color-border)] bg-white px-3 font-semibold text-[var(--color-ink)] active:scale-95 transition"
               >
                 Guardar fondo
               </button>
@@ -389,8 +392,8 @@ function TabResumen({
           </div>
 
           <div className="pt-3">
-            <p className="font-semibold">Cerrar día / Liquidar</p>
-            <p className="text-sm text-gray-600 mb-1">Desglose de efectivo entregado</p>
+            <p className="font-display font-semibold text-[var(--color-ink)]">Cerrar día / Liquidar</p>
+            <p className="text-sm text-[var(--color-ink-soft)] mb-1">Desglose de efectivo entregado</p>
             <div className="space-y-1">
               {DENOMINACIONES.map((d) => (
                 <div key={d} className="flex items-center gap-2">
@@ -400,9 +403,9 @@ function TabResumen({
                     value={billetes[d]}
                     onChange={(e) => actualizarBillete(d, e.target.value)}
                     placeholder="0"
-                    className="border rounded-lg p-2 flex-1"
+                    className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 flex-1"
                   />
-                  <span className="w-24 text-sm text-right text-gray-600">
+                  <span className="w-24 text-sm text-right text-[var(--color-ink-soft)]">
                     = {(d * (parseInt(billetes[d]) || 0)).toFixed(2)}
                   </span>
                 </div>
@@ -419,7 +422,7 @@ function TabResumen({
                 const desglose = Object.fromEntries(DENOMINACIONES.map((d) => [d, parseInt(billetes[d]) || 0]));
                 onCerrarDia(entregado, remanente, desglose);
               }}
-              className="border rounded-lg p-2 mt-2 w-full font-semibold"
+              className="w-full rounded-xl bg-[var(--color-accent)] text-white font-semibold py-2.5 mt-2 active:scale-[0.98] transition"
             >
               Cerrar día
             </button>
@@ -429,11 +432,11 @@ function TabResumen({
 
       {cerrado && (
         <div className="pt-3">
-          <p className="text-green-700 font-semibold">
+          <p className="text-[var(--color-ok)] font-display font-semibold">
             Día cerrado. Efectivo entregado: {turno.efectivo_entregado?.toFixed(2)} · Remanente: {turno.remanente?.toFixed(2)}
           </p>
           {turno.desglose_efectivo && (
-            <div className="text-sm text-gray-600 mt-1">
+            <div className="text-sm text-[var(--color-ink-soft)] mt-1">
               {Object.entries(turno.desglose_efectivo as Record<string, number>)
                 .filter(([, cant]) => cant > 0)
                 .map(([denom, cant]) => (
@@ -532,33 +535,33 @@ function TabCompras({
   return (
     <div className="space-y-4">
       <div>
-        <p className="font-semibold">💧 Agua</p>
-        <p className="text-sm text-gray-600">Valor de la compra</p>
+        <p className="font-display font-semibold text-[var(--color-ink)]">💧 Agua</p>
+        <p className="text-sm text-[var(--color-ink-soft)]">Valor de la compra</p>
         <input
           type="number"
           value={valorAgua}
           onChange={(e) => setValorAgua(e.target.value)}
           placeholder="0.00"
-          className="border rounded-lg p-2 w-full mt-1"
+          className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] mt-1"
         />
         <button
           onClick={registrarCompraAgua}
           disabled={procesandoAgua}
-          className="border rounded-lg p-2 mt-2 w-full font-semibold disabled:opacity-40"
+          className="w-full rounded-xl bg-[var(--color-accent)] text-white font-semibold py-2.5 mt-2 active:scale-[0.98] transition disabled:opacity-40"
         >
           {procesandoAgua ? "Procesando..." : "Registrar compra de agua"}
         </button>
       </div>
 
       <div>
-        <p className="font-semibold">⛽ Gasóleo (diésel)</p>
-        <p className="text-sm text-gray-600">Precio total</p>
+        <p className="font-display font-semibold text-[var(--color-ink)]">⛽ Gasóleo (diésel)</p>
+        <p className="text-sm text-[var(--color-ink-soft)]">Precio total</p>
         <input
           type="number"
           value={precioGasoleo}
           onChange={(e) => setPrecioGasoleo(e.target.value)}
           placeholder="0.00"
-          className="border rounded-lg p-2 w-full mt-1"
+          className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] mt-1"
         />
         <button
           onClick={async () => {
@@ -572,14 +575,14 @@ function TabCompras({
             }
           }}
           disabled={procesandoGasoleo}
-          className="border rounded-lg p-2 mt-2 w-full font-semibold disabled:opacity-40"
+          className="w-full rounded-xl bg-[var(--color-accent)] text-white font-semibold py-2.5 mt-2 active:scale-[0.98] transition disabled:opacity-40"
         >
           {procesandoGasoleo ? "Procesando..." : "Registrar compra de gasóleo"}
         </button>
       </div>
 
       <div className="pt-3 space-y-1">
-        {movimientos.length === 0 && <p className="text-gray-500">Sin registros hoy</p>}
+        {movimientos.length === 0 && <p className="text-[var(--color-ink-soft)]">Sin registros hoy</p>}
         {movimientos.map((m) => (
           <div key={m.id} className="text-sm border-b pb-2">
             {editandoId === m.id ? (
@@ -588,13 +591,13 @@ function TabCompras({
                   type="number"
                   value={montoEdit}
                   onChange={(e) => setMontoEdit(e.target.value)}
-                  className="border rounded-lg p-2 w-full"
+                  className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
                 />
                 <div className="flex gap-2">
-                  <button onClick={() => guardarEdicion(m)} className="border rounded-lg px-3 py-1 font-semibold flex-1">
+                  <button onClick={() => guardarEdicion(m)} className="rounded-xl bg-[var(--color-accent)] text-white px-3 py-2 font-semibold flex-1 active:scale-[0.98] transition">
                     Guardar
                   </button>
-                  <button onClick={() => setEditandoId(null)} className="border rounded-lg px-3 py-1 flex-1">
+                  <button onClick={() => setEditandoId(null)} className="rounded-xl border border-[var(--color-border)] bg-white text-[var(--color-ink)] px-3 py-2 font-semibold flex-1 active:scale-[0.98] transition">
                     Cancelar
                   </button>
                 </div>
@@ -604,7 +607,7 @@ function TabCompras({
                 <span>{m.tipo === "compra_agua" ? "Agua" : "Gasóleo"}</span>
                 <span className="flex items-center gap-2">
                   {(m.monto ?? 0).toFixed(2)}
-                  <button onClick={() => empezarEdicion(m)} className="text-xs border rounded px-2 py-0.5">
+                  <button onClick={() => empezarEdicion(m)} className="text-xs font-medium rounded-lg border border-[var(--color-border)] bg-white px-2 py-1 active:scale-95 transition">
                     Editar
                   </button>
                 </span>
@@ -710,22 +713,22 @@ function TabVentas({
 
   return (
     <div className="space-y-2">
-      <p className="text-sm text-gray-600">Litros vendidos</p>
+      <p className="text-sm text-[var(--color-ink-soft)]">Litros vendidos</p>
       <input
         type="number"
         value={litros}
         onChange={(e) => setLitros(e.target.value)}
         placeholder="0"
-        className="border rounded-lg p-2 w-full"
+        className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
       />
       {litrosNum > 0 && (
-        <p className={`text-sm ${excedeStock ? "text-red-600" : "text-gray-600"}`}>
+        <p className={`text-sm ${excedeStock ? "text-[var(--color-danger)]" : "text-[var(--color-ink-soft)]"}`}>
           Quedarían en el camión: <strong>{quedarian.toFixed(2)} L</strong>
           {excedeStock ? " — supera lo que hay en existencia" : ""}
         </p>
       )}
 
-      <p className="text-sm text-gray-600">
+      <p className="text-sm text-[var(--color-ink-soft)]">
         Cliente {tieneCredito ? "(obligatorio para venta a crédito)" : "(opcional)"}
       </p>
       <input
@@ -733,115 +736,115 @@ function TabVentas({
         value={clienteNota}
         onChange={(e) => setClienteNota(e.target.value)}
         placeholder="Nombre del cliente"
-        className="border rounded-lg p-2 w-full"
+        className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
       />
 
       {tieneCredito && (
         <>
-          <p className="text-sm text-gray-600">Teléfono del cliente (obligatorio para crédito)</p>
+          <p className="text-sm text-[var(--color-ink-soft)]">Teléfono del cliente (obligatorio para crédito)</p>
           <input
             type="tel"
             value={clienteTelefono}
             onChange={(e) => setClienteTelefono(e.target.value)}
             placeholder="Ej: 923 456 789"
-            className="border rounded-lg p-2 w-full"
+            className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
           />
         </>
       )}
 
       <p className="font-semibold pt-2">Pago (se puede dividir)</p>
-      <p className="text-sm text-gray-600">Efectivo</p>
+      <p className="text-sm text-[var(--color-ink-soft)]">Efectivo</p>
       <input
         type="number"
         value={efectivo}
         onChange={(e) => setEfectivo(e.target.value)}
         placeholder="0.00"
-        className="border rounded-lg p-2 w-full"
+        className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
       />
-      <p className="text-sm text-gray-600">Transferencia</p>
+      <p className="text-sm text-[var(--color-ink-soft)]">Transferencia</p>
       <input
         type="number"
         value={transferencia}
         onChange={(e) => setTransferencia(e.target.value)}
         placeholder="0.00"
-        className="border rounded-lg p-2 w-full"
+        className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
       />
-      <p className="text-sm text-gray-600">Crédito</p>
+      <p className="text-sm text-[var(--color-ink-soft)]">Crédito</p>
       <input
         type="number"
         value={credito}
         onChange={(e) => setCredito(e.target.value)}
         placeholder="0.00"
-        className="border rounded-lg p-2 w-full"
+        className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
       />
 
       <p className="pt-1">
         Importe total: <strong>{importeTotal.toFixed(2)}</strong>
       </p>
 
-      {errorLocal && <p className="text-red-600 text-sm">{errorLocal}</p>}
+      {errorLocal && <p className="text-[var(--color-danger)] text-sm">{errorLocal}</p>}
 
       <button
         onClick={registrar}
         disabled={excedeStock || faltanDatosCliente}
-        className="border rounded-lg p-2 w-full font-semibold disabled:opacity-40"
+        className="w-full rounded-xl bg-[var(--color-accent)] text-white font-semibold py-2.5 active:scale-[0.98] transition disabled:opacity-40"
       >
         Registrar venta
       </button>
 
       <div className="pt-3 space-y-1">
-        {movimientos.length === 0 && <p className="text-gray-500">Sin registros hoy</p>}
+        {movimientos.length === 0 && <p className="text-[var(--color-ink-soft)]">Sin registros hoy</p>}
         {movimientos.map((m) => (
           <div key={m.id} className="text-sm border-b pb-2">
             {editandoId === m.id && edit ? (
               <div className="space-y-1 py-1">
-                <p className="text-xs text-gray-500">Litros</p>
+                <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Litros</p>
                 <input
                   type="number"
                   value={edit.litros}
                   onChange={(e) => setEdit({ ...edit, litros: e.target.value })}
-                  className="border rounded-lg p-2 w-full"
+                  className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
                 />
-                <p className="text-xs text-gray-500">Cliente</p>
+                <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Cliente</p>
                 <input
                   type="text"
                   value={edit.clienteNota}
                   onChange={(e) => setEdit({ ...edit, clienteNota: e.target.value })}
-                  className="border rounded-lg p-2 w-full"
+                  className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
                 />
-                <p className="text-xs text-gray-500">Teléfono</p>
+                <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Teléfono</p>
                 <input
                   type="text"
                   value={edit.clienteTelefono}
                   onChange={(e) => setEdit({ ...edit, clienteTelefono: e.target.value })}
-                  className="border rounded-lg p-2 w-full"
+                  className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
                 />
-                <p className="text-xs text-gray-500">Efectivo</p>
+                <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Efectivo</p>
                 <input
                   type="number"
                   value={edit.efectivo}
                   onChange={(e) => setEdit({ ...edit, efectivo: e.target.value })}
-                  className="border rounded-lg p-2 w-full"
+                  className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
                 />
-                <p className="text-xs text-gray-500">Transferencia</p>
+                <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Transferencia</p>
                 <input
                   type="number"
                   value={edit.transferencia}
                   onChange={(e) => setEdit({ ...edit, transferencia: e.target.value })}
-                  className="border rounded-lg p-2 w-full"
+                  className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
                 />
-                <p className="text-xs text-gray-500">Crédito</p>
+                <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Crédito</p>
                 <input
                   type="number"
                   value={edit.credito}
                   onChange={(e) => setEdit({ ...edit, credito: e.target.value })}
-                  className="border rounded-lg p-2 w-full"
+                  className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
                 />
                 <div className="flex gap-2 pt-1">
-                  <button onClick={() => guardarEdicion(m)} className="border rounded-lg px-3 py-1 font-semibold flex-1">
+                  <button onClick={() => guardarEdicion(m)} className="rounded-xl bg-[var(--color-accent)] text-white px-3 py-2 font-semibold flex-1 active:scale-[0.98] transition">
                     Guardar
                   </button>
-                  <button onClick={() => setEditandoId(null)} className="border rounded-lg px-3 py-1 flex-1">
+                  <button onClick={() => setEditandoId(null)} className="rounded-xl border border-[var(--color-border)] bg-white text-[var(--color-ink)] px-3 py-2 font-semibold flex-1 active:scale-[0.98] transition">
                     Cancelar
                   </button>
                 </div>
@@ -853,7 +856,7 @@ function TabVentas({
                 </span>
                 <span className="flex items-center gap-2">
                   {(m.monto ?? 0).toFixed(2)}
-                  <button onClick={() => empezarEdicion(m)} className="text-xs border rounded px-2 py-0.5">
+                  <button onClick={() => empezarEdicion(m)} className="text-xs font-medium rounded-lg border border-[var(--color-border)] bg-white px-2 py-1 active:scale-95 transition">
                     Editar
                   </button>
                 </span>
@@ -906,8 +909,8 @@ function TabGastos({
 
   return (
     <div className="space-y-2">
-      <p className="text-sm text-gray-600">Categoría</p>
-      <select value={categoria} onChange={(e) => setCategoria(e.target.value)} className="border rounded-lg p-2 w-full">
+      <p className="text-sm text-[var(--color-ink-soft)]">Categoría</p>
+      <select value={categoria} onChange={(e) => setCategoria(e.target.value)} className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent">
         {CATEGORIAS_GASTO.map((c) => (
           <option key={c} value={c}>
             {c}
@@ -917,32 +920,32 @@ function TabGastos({
 
       {esOtros && (
         <>
-          <p className="text-sm text-gray-600">Observaciones</p>
+          <p className="text-sm text-[var(--color-ink-soft)]">Observaciones</p>
           <input
             type="text"
             value={observacion}
             onChange={(e) => setObservacion(e.target.value)}
             placeholder="Describí el gasto"
-            className="border rounded-lg p-2 w-full"
+            className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
           />
         </>
       )}
 
-      <p className="text-sm text-gray-600">Monto</p>
+      <p className="text-sm text-[var(--color-ink-soft)]">Monto</p>
       <input
         type="number"
         value={monto}
         onChange={(e) => setMonto(e.target.value)}
         placeholder="0.00"
-        className="border rounded-lg p-2 w-full"
+        className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
       />
 
-      <button onClick={registrar} className="border rounded-lg p-2 w-full font-semibold">
+      <button onClick={registrar} className="w-full rounded-xl bg-[var(--color-accent)] text-white font-semibold py-2.5 active:scale-[0.98] transition">
         Registrar gasto
       </button>
 
       <div className="pt-3 space-y-1">
-        {movimientos.length === 0 && <p className="text-gray-500">Sin registros hoy</p>}
+        {movimientos.length === 0 && <p className="text-[var(--color-ink-soft)]">Sin registros hoy</p>}
         {movimientos.map((m) => (
           <div key={m.id} className="text-sm border-b pb-2">
             {editandoId === m.id ? (
@@ -951,19 +954,19 @@ function TabGastos({
                   type="text"
                   value={categoriaEdit}
                   onChange={(e) => setCategoriaEdit(e.target.value)}
-                  className="border rounded-lg p-2 w-full"
+                  className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
                 />
                 <input
                   type="number"
                   value={montoEdit}
                   onChange={(e) => setMontoEdit(e.target.value)}
-                  className="border rounded-lg p-2 w-full"
+                  className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
                 />
                 <div className="flex gap-2">
-                  <button onClick={() => guardarEdicion(m)} className="border rounded-lg px-3 py-1 font-semibold flex-1">
+                  <button onClick={() => guardarEdicion(m)} className="rounded-xl bg-[var(--color-accent)] text-white px-3 py-2 font-semibold flex-1 active:scale-[0.98] transition">
                     Guardar
                   </button>
-                  <button onClick={() => setEditandoId(null)} className="border rounded-lg px-3 py-1 flex-1">
+                  <button onClick={() => setEditandoId(null)} className="rounded-xl border border-[var(--color-border)] bg-white text-[var(--color-ink)] px-3 py-2 font-semibold flex-1 active:scale-[0.98] transition">
                     Cancelar
                   </button>
                 </div>
@@ -973,7 +976,7 @@ function TabGastos({
                 <span>{m.categoria}</span>
                 <span className="flex items-center gap-2">
                   {(m.monto ?? 0).toFixed(2)}
-                  <button onClick={() => empezarEdicion(m)} className="text-xs border rounded px-2 py-0.5">
+                  <button onClick={() => empezarEdicion(m)} className="text-xs font-medium rounded-lg border border-[var(--color-border)] bg-white px-2 py-1 active:scale-95 transition">
                     Editar
                   </button>
                 </span>
