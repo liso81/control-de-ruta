@@ -147,6 +147,8 @@ export default function Home() {
   const alertas = movimientos.filter((m) => m.tipo === "alerta_sobrante");
 
   const ventasEfectivo = ventas.reduce((acc, m) => acc + (m.efectivo ?? 0), 0);
+  const ventasTransferencia = ventas.reduce((acc, m) => acc + (m.transferencia ?? 0), 0);
+  const ventasCredito = ventas.reduce((acc, m) => acc + (m.credito ?? 0), 0);
   const ventasTotales = ventas.reduce((acc, m) => acc + (m.efectivo ?? 0) + (m.transferencia ?? 0) + (m.credito ?? 0), 0);
   const totalCompras = compras.reduce((acc, m) => acc + (m.monto ?? 0), 0);
   const totalGastos = gastos.reduce((acc, m) => acc + (m.monto ?? 0), 0);
@@ -249,6 +251,8 @@ export default function Home() {
           saldoInicial={saldoInicial}
           fondoDueno={fondoDueno}
           ventasEfectivo={ventasEfectivo}
+          ventasTransferencia={ventasTransferencia}
+          ventasCredito={ventasCredito}
           ventasTotales={ventasTotales}
           totalCompras={totalCompras}
           totalGastos={totalGastos}
@@ -311,6 +315,8 @@ function TabResumen({
   saldoInicial,
   fondoDueno,
   ventasEfectivo,
+  ventasTransferencia,
+  ventasCredito,
   ventasTotales,
   totalCompras,
   totalGastos,
@@ -323,6 +329,8 @@ function TabResumen({
   saldoInicial: number;
   fondoDueno: number;
   ventasEfectivo: number;
+  ventasTransferencia: number;
+  ventasCredito: number;
   ventasTotales: number;
   totalCompras: number;
   totalGastos: number;
@@ -350,6 +358,8 @@ function TabResumen({
       <Fila label="Saldo inicial" valor={saldoInicial} />
       <Fila label="Fondo añadido" valor={fondoDueno} />
       <Fila label="Ventas en efectivo" valor={ventasEfectivo} />
+      <Fila label="Ventas por transferencia" valor={ventasTransferencia} />
+      <Fila label="Ventas a crédito (cuentas x cobrar)" valor={ventasCredito} />
       <Fila label="Ventas totales (todas)" valor={ventasTotales} />
       <Fila label="Compras" valor={totalCompras} />
       <Fila label="Otros gastos" valor={totalGastos} />
