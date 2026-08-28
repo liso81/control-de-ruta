@@ -475,6 +475,7 @@ function TabCompras({
   onEditar: (id: string, datos: Partial<Movimiento>) => Promise<boolean>;
 }) {
   const [valorAgua, setValorAgua] = useState("");
+  const [esGratis, setEsGratis] = useState(false);
   const [precioGasoleo, setPrecioGasoleo] = useState("");
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [montoEdit, setMontoEdit] = useState("");
@@ -515,8 +516,13 @@ function TabCompras({
         });
       }
 
-      await onRegistrar({ tipo: "compra_agua", monto: parseFloat(valorAgua) || 0 });
+      await onRegistrar({
+        tipo: "compra_agua",
+        monto: esGratis ? 0 : parseFloat(valorAgua) || 0,
+        categoria: esGratis ? "gratis" : null,
+      });
       setValorAgua("");
+      setEsGratis(false);
     } finally {
       setProcesandoAgua(false);
     }
@@ -536,20 +542,38 @@ function TabCompras({
     <div className="space-y-4">
       <div>
         <p className="font-display font-semibold text-[var(--color-ink)]">💧 Agua</p>
-        <p className="text-sm text-[var(--color-ink-soft)]">Valor de la compra</p>
-        <input
-          type="number"
-          value={valorAgua}
-          onChange={(e) => setValorAgua(e.target.value)}
-          placeholder="0.00"
-          className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] mt-1"
-        />
+
+        <label className="flex items-center gap-2 mt-2 mb-1">
+          <input
+            type="checkbox"
+            checked={esGratis}
+            onChange={(e) => setEsGratis(e.target.checked)}
+            className="w-4 h-4 accent-[var(--color-accent)]"
+          />
+          <span className="text-sm text-[var(--color-ink)]">
+            🎁 Este cargamento es gratis (cortesía del proveedor)
+          </span>
+        </label>
+
+        {!esGratis && (
+          <>
+            <p className="text-sm text-[var(--color-ink-soft)]">Valor de la compra</p>
+            <input
+              type="number"
+              value={valorAgua}
+              onChange={(e) => setValorAgua(e.target.value)}
+              placeholder="0.00"
+              className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] mt-1"
+            />
+          </>
+        )}
+
         <button
           onClick={registrarCompraAgua}
           disabled={procesandoAgua}
           className="w-full rounded-xl bg-[var(--color-accent)] text-white font-semibold py-2.5 mt-2 active:scale-[0.98] transition disabled:opacity-40"
         >
-          {procesandoAgua ? "Procesando..." : "Registrar compra de agua"}
+          {procesandoAgua ? "Procesando..." : esGratis ? "Registrar cargamento gratis" : "Registrar compra de agua"}
         </button>
       </div>
 
