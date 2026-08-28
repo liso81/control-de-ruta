@@ -284,6 +284,7 @@ function PanelVehiculos() {
   const [error, setError] = useState("");
   const [camionDocumentos, setCamionDocumentos] = useState<Camion | null>(null);
   const [camionParalizaciones, setCamionParalizaciones] = useState<Camion | null>(null);
+  const [camionGPS, setCamionGPS] = useState<Camion | null>(null);
 
   const [nombreNuevo, setNombreNuevo] = useState("");
   const [capacidadNueva, setCapacidadNueva] = useState("");
@@ -391,6 +392,10 @@ function PanelVehiculos() {
     return <DetalleParalizaciones camion={camionParalizaciones} onVolver={() => setCamionParalizaciones(null)} />;
   }
 
+  if (camionGPS) {
+    return <DetalleGPS camion={camionGPS} onVolver={() => setCamionGPS(null)} />;
+  }
+
   return (
     <div>
       <h2 className="font-display font-semibold mb-2 text-[var(--color-ink)]">Vehículos</h2>
@@ -486,6 +491,9 @@ function PanelVehiculos() {
                   </button>
                   <button onClick={() => setCamionParalizaciones(c)} className="text-xs font-medium rounded-lg border border-[var(--color-border)] px-2.5 py-1.5 active:scale-95 transition">
                     Paralizaciones
+                  </button>
+                  <button onClick={() => setCamionGPS(c)} className="text-xs font-medium rounded-lg border border-[var(--color-border)] px-2.5 py-1.5 active:scale-95 transition">
+                    GPS
                   </button>
                 </div>
               </div>
@@ -3132,5 +3140,244 @@ function BotonCargarDocumento() {
         </div>
       )}
     </>
+  );
+}
+
+/* ================= CONFIGURACIÓN GPS ================= */
+
+function DetalleGPS({ camion, onVolver }: { camion: Camion; onVolver: () => void }) {
+  const [cargando, setCargando] = useState(true);
+  const [configurado, setConfigurado] = useState(false);
+  const [servidorUrlActual, setServidorUrlActual] = useState<string | null>(null);
+  const [iccidActual, setIccidActual] = useState<string | null>(null);
+  const [actualizadoEl, setActualizadoEl] = useState<string | null>(null);
+  const [editando, setEditando] = useState(false);
+
+  const [servidorUrl, setServidorUrl] = useState("");
+  const [usuario, setUsuario] = useState("");
+  const [password, setPassword] = useState("");
+  const [iccid, setIccid] = useState("");
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState("");
+  const [guardadoOk, setGuardadoOk] = useState(false);
+  const [linkGenerado, setLinkGenerado] = useState("");
+  const [generandoLink, setGenerandoLink] = useState(false);
+  const [mostrarFormularioManual, setMostrarFormularioManual] = useState(false);
+
+  useEffect(() => {
+    cargarEstado();
+  }, []);
+
+  async function generarLink() {
+    setGenerandoLink(true);
+    setError("");
+    const res = await fetch("/api/admin/gps/generar-link", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ camion_id: camion.id }),
+    });
+    const json = await res.json();
+    setGenerandoLink(false);
+    if (json.error) {
+      setError(json.error);
+      return;
+    }
+    const url = `${window.location.origin}/gps-config/${json.token}`;
+    setLinkGenerado(url);
+  }
+
+  function copiarLink() {
+    navigator.clipboard.writeText(linkGenerado);
+  }
+
+  async function cargarEstado() {
+    setCargando(true);
+    const res = await fetch(`/api/admin/gps?camion_id=${camion.id}`);
+    const json = await res.json();
+    setConfigurado(json.configurado);
+    setServidorUrlActual(json.servidor_url);
+    setIccidActual(json.iccid);
+    setActualizadoEl(json.updated_at);
+    setEditando(!json.configurado);
+    setCargando(false);
+  }
+
+  async function guardar() {
+    setError("");
+    if (!servidorUrl.trim() || !usuario.trim() || !password.trim()) {
+      setError("Completá al menos servidor, usuario y contraseña");
+      return;
+    }
+    setGuardando(true);
+    const res = await fetch("/api/admin/gps", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        camion_id: camion.id,
+        servidor_url: servidorUrl.trim(),
+        usuario: usuario.trim(),
+        password,
+        iccid: iccid.trim() || null,
+      }),
+    });
+    const json = await res.json();
+    setGuardando(false);
+    if (json.error) {
+      setError(json.error);
+      return;
+    }
+    setUsuario("");
+    setPassword("");
+    setGuardadoOk(true);
+    await cargarEstado();
+  }
+
+  return (
+    <div>
+      <button onClick={onVolver} className="text-sm mb-3 text-[var(--color-ink-soft)]">
+        ← Volver a vehículos
+      </button>
+      <h2 className="font-display font-semibold mb-1 text-[var(--color-ink)]">
+        GPS — {camion.matricula || camion.nombre}
+      </h2>
+      <p className="text-sm text-[var(--color-ink-soft)] mb-4">{camion.nombre}</p>
+
+      {cargando && <p className="text-[var(--color-ink-soft)]">Cargando...</p>}
+
+      {!cargando && configurado && !editando && (
+        <div className="bg-white rounded-2xl border border-[var(--color-ok)] shadow-sm p-4 mb-4">
+          <p className="font-semibold text-[var(--color-ok)]">✅ GPS configurado</p>
+          <p className="text-sm text-[var(--color-ink-soft)] mt-1">
+            Servidor: {servidorUrlActual}
+          </p>
+          {iccidActual && <p className="text-sm text-[var(--color-ink-soft)]">ICCID: {iccidActual}</p>}
+          {actualizadoEl && (
+            <p className="text-xs text-[var(--color-ink-soft)] mt-1">
+              Última actualización: {new Date(actualizadoEl).toLocaleDateString()}
+            </p>
+          )}
+          <p className="text-xs text-[var(--color-ink-soft)] mt-2 italic">
+            El usuario y la contraseña quedan guardados de forma privada — no se vuelven a mostrar en pantalla.
+          </p>
+          <button
+            onClick={() => setEditando(true)}
+            className="w-full rounded-xl border border-[var(--color-border)] bg-white text-[var(--color-ink)] font-semibold py-2.5 mt-3 active:scale-[0.98] transition"
+          >
+            Reconfigurar / cambiar credenciales
+          </button>
+        </div>
+      )}
+
+      {!cargando && editando && (
+        <div className="bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4 space-y-2 mb-3">
+          <p className="font-semibold text-sm text-[var(--color-ink)]">
+            {configurado ? "Actualizar" : "Configurar"} acceso al GPS
+          </p>
+          <p className="text-xs text-[var(--color-ink-soft)]">
+            Lo más privado: generá un link de un solo uso y mandáselo al dueño del camión por Telegram. Lo completa
+            él mismo, desde su propio teléfono — vos nunca ves usuario ni contraseña.
+          </p>
+
+          <button
+            onClick={generarLink}
+            disabled={generandoLink}
+            className="w-full rounded-xl bg-[var(--color-accent)] text-white font-semibold py-2.5 active:scale-[0.98] transition disabled:opacity-40"
+          >
+            {generandoLink ? "Generando..." : "🔗 Generar link para el dueño"}
+          </button>
+
+          {linkGenerado && (
+            <div className="border border-[var(--color-border)] rounded-xl p-3 mt-2">
+              <p className="text-xs text-[var(--color-ink-soft)] mb-1">
+                Link válido por 48 horas, un solo uso:
+              </p>
+              <p className="text-xs break-all text-[var(--color-ink)] mb-2">{linkGenerado}</p>
+              <button
+                onClick={copiarLink}
+                className="w-full rounded-xl border border-[var(--color-border)] bg-white text-[var(--color-ink)] font-semibold py-2 active:scale-95 transition text-sm"
+              >
+                Copiar link
+              </button>
+            </div>
+          )}
+
+          <button
+            onClick={() => setMostrarFormularioManual(!mostrarFormularioManual)}
+            className="text-xs text-[var(--color-ink-soft)] underline mt-2"
+          >
+            {mostrarFormularioManual ? "Ocultar" : "O completarlo yo mismo (menos privado)"}
+          </button>
+        </div>
+      )}
+
+      {!cargando && editando && mostrarFormularioManual && (
+        <div className="bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4 space-y-2">
+          <p className="font-semibold text-sm text-[var(--color-ink)]">Completar manualmente</p>
+
+          <label className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">
+            Servidor GPS (URL)
+          </label>
+          <input
+            type="text"
+            value={servidorUrl}
+            onChange={(e) => setServidorUrl(e.target.value)}
+            placeholder="ej: tuservidor.gpswox.com"
+            className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px]"
+          />
+
+          <label className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Usuario</label>
+          <input
+            type="text"
+            value={usuario}
+            onChange={(e) => setUsuario(e.target.value)}
+            autoComplete="off"
+            className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px]"
+          />
+
+          <label className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Contraseña</label>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="new-password"
+            className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px]"
+          />
+
+          <label className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">
+            ICCID del dispositivo (opcional)
+          </label>
+          <input
+            type="text"
+            value={iccid}
+            onChange={(e) => setIccid(e.target.value)}
+            placeholder="Número de serie de la SIM del GPS"
+            className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px]"
+          />
+
+          {error && <p className="text-sm text-[var(--color-danger)]">{error}</p>}
+
+          <button
+            onClick={guardar}
+            disabled={guardando}
+            className="w-full rounded-xl bg-[var(--color-accent)] text-white font-semibold py-2.5 mt-2 active:scale-[0.98] transition disabled:opacity-40"
+          >
+            {guardando ? "Guardando..." : "Guardar de forma segura"}
+          </button>
+
+          {configurado && (
+            <button
+              onClick={() => setEditando(false)}
+              className="w-full rounded-xl border border-[var(--color-border)] bg-white text-[var(--color-ink)] font-semibold py-2.5 active:scale-[0.98] transition"
+            >
+              Cancelar
+            </button>
+          )}
+        </div>
+      )}
+
+      {guardadoOk && !editando && (
+        <p className="text-sm text-[var(--color-ok)] mt-3">✅ Guardado correctamente.</p>
+      )}
+    </div>
   );
 }
