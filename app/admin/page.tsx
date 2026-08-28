@@ -761,20 +761,33 @@ function DetalleTurno({ turno, onVolver }: { turno: Turno; onVolver: () => void 
         </div>
       )}
 
-      <h3 className="font-display font-semibold text-sm mb-1 text-[var(--color-ink)]">Movimientos</h3>
-      <div className="space-y-1">
-        {movimientos
-          .filter((m) => m.tipo !== "alerta_sobrante")
-          .map((m) => (
-            <div key={m.id} className="text-sm border-b pb-1 flex justify-between">
-              <span>
-                {m.categoria ?? m.tipo} {m.litros ? `· ${m.litros}L` : ""} {m.cliente_nota ? `· ${m.cliente_nota}` : ""}
-              </span>
-              <span>{(m.monto ?? 0).toFixed(2)}</span>
-            </div>
-          ))}
-        {!cargando && movimientos.length === 0 && <p className="text-[var(--color-ink-soft)]">Sin movimientos.</p>}
+      <h3 className="font-display font-semibold text-sm mb-1 text-[var(--color-ok)]">💰 Entradas de efectivo</h3>
+      <div className="space-y-1 mb-4">
+        {ventas.map((m) => (
+          <div key={m.id} className="text-sm border-b pb-1 flex justify-between">
+            <span>
+              venta {m.litros ? `· ${m.litros}L` : ""} {m.cliente_nota ? `· ${m.cliente_nota}` : ""}
+            </span>
+            <span className="text-[var(--color-ok)]">+{(m.monto ?? 0).toFixed(2)}</span>
+          </div>
+        ))}
+        {ventas.length === 0 && <p className="text-sm text-[var(--color-ink-soft)]">Sin ventas.</p>}
       </div>
+
+      <h3 className="font-display font-semibold text-sm mb-1 text-[var(--color-danger)]">💸 Salidas de efectivo</h3>
+      <div className="space-y-1">
+        {[...compras, ...gastos].map((m) => (
+          <div key={m.id} className="text-sm border-b pb-1 flex justify-between">
+            <span>{m.categoria ?? m.tipo}</span>
+            <span className="text-[var(--color-danger)]">-{(m.monto ?? 0).toFixed(2)}</span>
+          </div>
+        ))}
+        {compras.length === 0 && gastos.length === 0 && (
+          <p className="text-sm text-[var(--color-ink-soft)]">Sin compras ni gastos.</p>
+        )}
+      </div>
+
+      {!cargando && movimientos.length === 0 && <p className="text-[var(--color-ink-soft)] mt-2">Sin movimientos.</p>}
     </div>
   );
 }
