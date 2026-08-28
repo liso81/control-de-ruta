@@ -2240,7 +2240,20 @@ function FilaFlujo({ label, valor, negrita, negativo }: { label: string; valor: 
   );
 }
 
+const GLOSARIO_FINANZAS: { paso: string; explicacion: string }[] = [
+  { paso: "1. Capital inyectado", explicacion: "Plata que vos (el dueño) pusiste de tu bolsillo para que el negocio funcione. No es una venta, es un aporte tuyo." },
+  { paso: "2. Ingresos", explicacion: "Todo lo que entró por vender agua: en efectivo, por transferencia, y lo que quedó fiado (por cobrar)." },
+  { paso: "3. Gastos", explicacion: "Todo lo que salió: comprar insumos, pagar servicios de terceros, otros gastos, y lo que gastaron los choferes en la ruta (combustible, imprevistos, etc.)." },
+  { paso: "4. Utilidad bruta", explicacion: "Lo que ganó el negocio antes de guardar plata para el futuro: Ingresos menos Gastos." },
+  { paso: "5. Provisión", explicacion: "Plata que se aparta hoy para el día que haya que cambiar neumáticos, hacer un service, renovar el seguro, etc. Es un ahorro obligatorio, no un gasto de hoy." },
+  { paso: "6. Utilidad real", explicacion: "Lo que realmente ganaste, después de guardar esa plata para el mantenimiento futuro del camión." },
+  { paso: "7. Efectivo a operar", explicacion: "Cuánta plata tenés disponible para seguir trabajando: lo que vos pusiste, más lo que ganaste." },
+  { paso: "8. Fondo extraído", explicacion: "Plata que sacaste del negocio para vos, para uso personal (no es un gasto del negocio en sí)." },
+  { paso: "9. Efectivo real a operar", explicacion: "Lo que finalmente queda disponible en el negocio, después de que sacaste tu parte." },
+];
+
 function PanelFinanzas() {
+  const [mostrarGlosario, setMostrarGlosario] = useState(false);
   const [resumen, setResumen] = useState<ResumenFinanzas | null>(null);
   const [graficos, setGraficos] = useState<GraficosFinanzas | null>(null);
   const [modo, setModo] = useState<"diario" | "acumulado">("acumulado");
@@ -2400,7 +2413,27 @@ function PanelFinanzas() {
 
       {/* Flujo completo de 9 pasos */}
       <div className="bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4 mb-4 space-y-1">
-        <p className="font-display font-semibold text-sm mb-2 text-[var(--color-ink)]">Flujo de caja ({modo})</p>
+        <div className="flex justify-between items-center mb-2">
+          <p className="font-display font-semibold text-sm text-[var(--color-ink)]">Flujo de caja ({modo})</p>
+          <button
+            onClick={() => setMostrarGlosario(!mostrarGlosario)}
+            className="text-xs font-medium rounded-lg border border-[var(--color-border)] bg-white px-2 py-1 active:scale-95 transition"
+          >
+            {mostrarGlosario ? "Ocultar" : "❓ ¿Qué significa cada cosa?"}
+          </button>
+        </div>
+
+        {mostrarGlosario && (
+          <div className="bg-[var(--color-accent-soft)] rounded-xl p-3 mb-3 space-y-2">
+            {GLOSARIO_FINANZAS.map((g) => (
+              <div key={g.paso}>
+                <p className="text-xs font-semibold text-[var(--color-accent-dark)]">{g.paso}</p>
+                <p className="text-xs text-[var(--color-ink)]">{g.explicacion}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
         <FilaFlujo label="1. Capital inyectado" valor={paso.capitalInyectado} />
         <FilaFlujo label="2. Ingresos (efec.+transf.)" valor={paso.ingresosEfectivoTransferencia} />
         <FilaFlujo label="   Ingresos (cxc cobradas)" valor={paso.ingresosCuentasCobradas} />
