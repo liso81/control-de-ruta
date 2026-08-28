@@ -241,8 +241,6 @@ function PanelAdmin() {
         </div>
       </nav>
 
-      <BotonCargarDocumento />
-
       {/* Hoja emergente con el resto de las secciones */}
       {menuAbierto && (
         <div className="fixed inset-0 z-30 flex items-end" onClick={() => setMenuAbierto(false)}>
@@ -777,15 +775,12 @@ function DetalleTurno({ turno, onVolver }: { turno: Turno; onVolver: () => void 
 
       <h3 className="font-display font-semibold text-sm mb-1 text-[var(--color-ok)]">💰 Entradas de efectivo</h3>
       <div className="space-y-1 mb-4">
-        {agruparPorConcepto(
-          ventas.map((m) => ({ concepto: m.cliente_nota ? `Venta · ${m.cliente_nota}` : "Venta", monto: m.monto ?? 0 }))
-        ).map((g) => (
-          <div key={g.concepto} className="text-sm border-b pb-1 flex justify-between">
+        {ventas.map((m) => (
+          <div key={m.id} className="text-sm border-b pb-1 flex justify-between">
             <span>
-              {g.concepto}
-              {g.cantidad > 1 ? ` (×${g.cantidad})` : ""}
+              venta {m.litros ? `· ${m.litros}L` : ""} {m.cliente_nota ? `· ${m.cliente_nota}` : ""}
             </span>
-            <span className="text-[var(--color-ok)]">+{g.total.toFixed(2)}</span>
+            <span className="text-[var(--color-ok)]">+{(m.monto ?? 0).toFixed(2)}</span>
           </div>
         ))}
         {ventas.length === 0 && <p className="text-sm text-[var(--color-ink-soft)]">Sin ventas.</p>}
