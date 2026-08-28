@@ -143,6 +143,7 @@ export default function Home() {
   // --- Cálculos del resumen ---
   const ventas = movimientos.filter((m) => m.tipo === "venta");
   const compras = movimientos.filter((m) => m.tipo === "compra_agua" || m.tipo === "compra_gasoleo");
+  const cantidadCargamentos = movimientos.filter((m) => m.tipo === "compra_agua").length;
   const gastos = movimientos.filter((m) => m.tipo === "gasto");
   const alertas = movimientos.filter((m) => m.tipo === "alerta_sobrante");
 
@@ -254,6 +255,7 @@ export default function Home() {
           ventasTransferencia={ventasTransferencia}
           ventasCredito={ventasCredito}
           ventasTotales={ventasTotales}
+          cantidadCargamentos={cantidadCargamentos}
           totalCompras={totalCompras}
           totalGastos={totalGastos}
           efectivoDisponible={efectivoDisponible}
@@ -318,6 +320,7 @@ function TabResumen({
   ventasTransferencia,
   ventasCredito,
   ventasTotales,
+  cantidadCargamentos,
   totalCompras,
   totalGastos,
   efectivoDisponible,
@@ -332,6 +335,7 @@ function TabResumen({
   ventasTransferencia: number;
   ventasCredito: number;
   ventasTotales: number;
+  cantidadCargamentos: number;
   totalCompras: number;
   totalGastos: number;
   efectivoDisponible: number;
@@ -362,6 +366,10 @@ function TabResumen({
       <Fila label="Ventas a crédito (cuentas x cobrar)" valor={ventasCredito} />
       <Fila label="Ventas totales (todas)" valor={ventasTotales} />
       <Fila label="Compras" valor={totalCompras} />
+      <div className="flex justify-between border-b pb-1 text-[var(--color-ink)]">
+        <span>Cargamentos de agua hoy</span>
+        <span>{cantidadCargamentos}</span>
+      </div>
       <Fila label="Otros gastos" valor={totalGastos} />
       <Fila label="Efectivo disponible" valor={efectivoDisponible} negrita />
 
