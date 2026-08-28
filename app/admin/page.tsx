@@ -2250,6 +2250,7 @@ const GLOSARIO_FINANZAS: { paso: string; explicacion: string }[] = [
   { paso: "7. Efectivo a operar", explicacion: "Cuánta plata tenés disponible para seguir trabajando: lo que vos pusiste, más lo que ganaste." },
   { paso: "8. Fondo extraído", explicacion: "Plata que sacaste del negocio para vos, para uso personal (no es un gasto del negocio en sí)." },
   { paso: "9. Efectivo real a operar", explicacion: "Lo que finalmente queda disponible en el negocio, después de que sacaste tu parte." },
+  { paso: "Margen", explicacion: "Es tu Utilidad real dividida entre los Ingresos totales, en porcentaje. Si el margen es 50%, quiere decir que de cada 100 que entra al negocio, te quedan 50 limpios — el resto se fue en gastos y en la plata guardada para mantenimiento futuro." },
 ];
 
 function PanelFinanzas() {
@@ -2400,7 +2401,10 @@ function PanelFinanzas() {
         <div className="bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4">
           <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Margen</p>
           <p className="font-bold text-lg">{margen.toFixed(1)}%</p>
-          <p className="text-[10px] text-[var(--color-ink-soft)] mt-1">De cada 100 que entra, cuánto te queda limpio</p>
+          <p className="text-[10px] text-[var(--color-ink-soft)] mt-1">
+            De cada 100 que entra, cuánto te queda limpio después de pagar gastos y guardar plata para
+            mantenimiento futuro
+          </p>
         </div>
         <div className="bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4">
           <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Efectivo real a operar</p>
