@@ -2400,6 +2400,7 @@ function PanelFinanzas() {
         <div className="bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4">
           <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Margen</p>
           <p className="font-bold text-lg">{margen.toFixed(1)}%</p>
+          <p className="text-[10px] text-[var(--color-ink-soft)] mt-1">De cada 100 que entra, cuánto te queda limpio</p>
         </div>
         <div className="bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4">
           <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Efectivo real a operar</p>
@@ -2486,7 +2487,11 @@ function PanelFinanzas() {
       {/* Ranking de rentabilidad */}
       {graficos.comparativoPorCamion.length > 0 && (
         <div className="bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4 mb-4">
-          <p className="font-display font-semibold text-sm mb-2 text-[var(--color-ink)]">Ranking de rentabilidad (por litro vendido)</p>
+          <p className="font-display font-semibold text-sm mb-1 text-[var(--color-ink)]">Ranking de rentabilidad (por litro vendido)</p>
+          <p className="text-xs text-[var(--color-ink-soft)] mb-2">
+            Compara cuánto te queda de ganancia por cada litro vendido en cada camión. Un camión puede vender
+            mucho y aun así ganar poco por litro si gasta de más — este número te muestra eso.
+          </p>
           <div className="space-y-1">
             {graficos.comparativoPorCamion.map((c, i) => (
               <div key={c.camion_id} className="flex justify-between text-sm">
@@ -2504,7 +2509,11 @@ function PanelFinanzas() {
 
       {/* Tendencia acumulada */}
       <div className="bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4 mb-4">
-        <p className="font-display font-semibold text-sm mb-2 text-[var(--color-ink)]">Tendencia (últimos 30 días)</p>
+        <p className="font-display font-semibold text-sm mb-1 text-[var(--color-ink)]">Tendencia (últimos 30 días)</p>
+        <p className="text-xs text-[var(--color-ink-soft)] mb-2">
+          Muestra si el negocio va creciendo o achicándose día a día. Si la línea sube con el tiempo, vas
+          mejorando; si baja, es momento de revisar qué está pasando.
+        </p>
         <ResponsiveContainer width="100%" height={220}>
           <LineChart data={graficos.tendencia}>
             <CartesianGrid strokeDasharray="3 3" />
