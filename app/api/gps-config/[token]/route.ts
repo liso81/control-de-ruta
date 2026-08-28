@@ -13,7 +13,13 @@ async function buscarPorToken(token: string) {
   if (!data) return null;
   if (!data.token_expira || new Date(data.token_expira) < new Date()) return null;
 
-  return data;
+  const camionInfo = Array.isArray(data.camion) ? data.camion[0] : data.camion;
+
+  return {
+    camion_id: data.camion_id,
+    camion_nombre: camionInfo?.nombre ?? null,
+    camion_matricula: camionInfo?.matricula ?? null,
+  };
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ token: string }> }) {
@@ -25,8 +31,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ toke
   }
 
   return NextResponse.json({
-    camion_nombre: registro.camion?.nombre ?? null,
-    camion_matricula: registro.camion?.matricula ?? null,
+    camion_nombre: registro.camion_nombre,
+    camion_matricula: registro.camion_matricula,
   });
 }
 
@@ -45,7 +51,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     return NextResponse.json({ error: "Completá servidor, usuario y contraseña" }, { status: 400 });
   }
 
-  // Guardamos las credenciales y de inmediato invalidamos el token (uso único).
   const { error } = await supabaseAdmin
     .from("gps_configuracion")
     .update({
