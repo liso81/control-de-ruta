@@ -20,9 +20,6 @@ function divisionSegura(numerador: number, ...divisores: number[]): number {
   return resultado;
 }
 
-// Recalcula, del lado del servidor, el monto diario de cada submayor a
-// partir de los datos guardados — así el mayor siempre refleja los valores
-// vigentes, no lo que mande el cliente.
 function calcularMontosDiarios(datos: DatosProvisionFondos): Record<Submayor, number> {
   const a = numero(datos.diasTrabajoMes);
   const b = numero(datos.posiblesViajes);
@@ -87,11 +84,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Falta camion_id" }, { status: 400 });
   }
 
-  const { data: provision } = await supabaseAdmin
+  const { data: provision, error: errorProvision } = await supabaseAdmin
     .from("provision_fondos")
     .select("datos")
     .eq("camion_id", camion_id)
     .maybeSingle();
+
+  if (errorProvision) {
+    return NextResponse.json({ error: errorProvision.message }, { status: 500 });
+  }
 
   if (!provision || !provision.datos) {
     return NextResponse.json({ error: "No hay datos de provisión guardados para este camión" }, { status: 400 });
@@ -111,12 +112,16 @@ export async function POST(request: Request) {
       descripcion: "Provisión diaria",
     }));
 
-  // El índice único (camion_id, submayor, fecha) para créditos evita
-  // duplicar si ya se acreditó hoy — usamos upsert para que sea repetible
-  // sin error si se toca el botón más de una vez.
+  if (entradas.length === 0) {
+    return NextResponse.json(
+      { error: "Todos los montos calculados dieron 0. Revisá que los datos de Provisión estén completos." },
+      { status: 400 }
+    );
+  }
+
   const { error } = await supabaseAdmin
     .from("mayor_provision")
-    .upsert(entradas, { onConflict: "camion_id,submayor,fecha", ignoreDuplicates: false });
+    .upsert(entradas, { onConflict: "camion_id,submayor,fecha,tipo" });
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

@@ -1929,6 +1929,7 @@ function FormularioProvision({ camion, onVolver }: { camion: Camion; onVolver: (
   const [saldos, setSaldos] = useState<SaldoSubmayor[]>([]);
   const [saldoTotal, setSaldoTotal] = useState(0);
   const [acreditando, setAcreditando] = useState(false);
+  const [errorAcreditar, setErrorAcreditar] = useState("");
 
   useEffect(() => {
     cargarDatos();
@@ -1944,11 +1945,16 @@ function FormularioProvision({ camion, onVolver }: { camion: Camion; onVolver: (
 
   async function acreditarHoy() {
     setAcreditando(true);
-    await fetch("/api/admin/provision/acreditar", {
+    setErrorAcreditar("");
+    const res = await fetch("/api/admin/provision/acreditar", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ camion_id: camion.id }),
     });
+    const json = await res.json();
+    if (json.error) {
+      setErrorAcreditar(json.error);
+    }
     await cargarMayor();
     setAcreditando(false);
   }
@@ -2071,6 +2077,7 @@ function FormularioProvision({ camion, onVolver }: { camion: Camion; onVolver: (
                 {acreditando ? "Acreditando..." : "Acreditar hoy"}
               </button>
             </div>
+            {errorAcreditar && <p className="text-sm text-[var(--color-danger)] mb-2">{errorAcreditar}</p>}
             <div className="space-y-1">
               {saldos.map((s) => (
                 <div key={s.submayor} className="flex justify-between text-sm">
