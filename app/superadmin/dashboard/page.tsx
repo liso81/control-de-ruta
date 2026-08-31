@@ -49,6 +49,7 @@ export default function SuperadminDashboard() {
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
   const [cargando, setCargando] = useState(true);
   const [mostrarForm, setMostrarForm] = useState(false);
+  const [accionEnCurso, setAccionEnCurso] = useState<string | null>(null);
 
   async function cargarDatos() {
     setCargando(true);
@@ -68,12 +69,19 @@ export default function SuperadminDashboard() {
   }, []);
 
   async function accionEmpresa(id: string, accion: "renovar" | "bloquear" | "desbloquear" | "cancelar") {
-    await fetch(`/api/superadmin/empresas/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ accion }),
-    });
-    cargarDatos();
+    const clave = `${id}:${accion}`;
+    if (accionEnCurso) return;
+    setAccionEnCurso(clave);
+    try {
+      await fetch(`/api/superadmin/empresas/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accion }),
+      });
+      await cargarDatos();
+    } finally {
+      setAccionEnCurso(null);
+    }
   }
 
   async function marcarEnviado(id: string) {
@@ -179,21 +187,24 @@ export default function SuperadminDashboard() {
               <div className="flex flex-wrap gap-2 pt-1">
                 <button
                   onClick={() => accionEmpresa(empresa.id, "renovar")}
-                  className="rounded-lg bg-[#0E7C7B] text-white text-xs px-3 py-1.5 font-medium"
+                  disabled={!!accionEnCurso}
+                  className="rounded-lg bg-[#0E7C7B] text-white text-xs px-3 py-1.5 font-medium disabled:opacity-50"
                 >
-                  Registrar pago / renovar
+                  {accionEnCurso === `${empresa.id}:renovar` ? "Procesando..." : "Registrar pago / renovar"}
                 </button>
                 {empresa.estado !== "bloqueada" ? (
                   <button
                     onClick={() => accionEmpresa(empresa.id, "bloquear")}
-                    className="rounded-lg border border-red-200 text-red-600 text-xs px-3 py-1.5 font-medium"
+                    disabled={!!accionEnCurso}
+                    className="rounded-lg border border-red-200 text-red-600 text-xs px-3 py-1.5 font-medium disabled:opacity-50"
                   >
                     Bloquear
                   </button>
                 ) : (
                   <button
                     onClick={() => accionEmpresa(empresa.id, "desbloquear")}
-                    className="rounded-lg border border-emerald-200 text-emerald-600 text-xs px-3 py-1.5 font-medium"
+                    disabled={!!accionEnCurso}
+                    className="rounded-lg border border-emerald-200 text-emerald-600 text-xs px-3 py-1.5 font-medium disabled:opacity-50"
                   >
                     Desbloquear
                   </button>
