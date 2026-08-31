@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { verificarSesion, NOMBRE_COOKIE } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import type { TipoDocumento } from "@/lib/tipos";
-import { calcularUtilidadDiariaPromedio } from "../paralizaciones/route";
+import { calcularUtilidadDiariaPromedio } from "@/lib/paralizaciones";
 
 export const dynamic = "force-dynamic";
 
