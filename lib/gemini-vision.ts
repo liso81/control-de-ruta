@@ -15,10 +15,17 @@ Extraé estos datos y respondé SOLO con un objeto JSON, sin texto adicional, si
 }
 Si la imagen no es un comprobante legible, respondé: {"error": "no_legible"}`;
 
-export async function extraerGastoDeImagen(imagenBase64: string): Promise<GastoExtraido | null> {
+const MAX_INTENTOS = 3;
+const ESPERA_BASE_MS = 2000; // 2s, 4s, 8s entre reintentos
+
+function esperar(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function llamarGemini(imagenBase64: string): Promise<Response> {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${process.env.GEMINI_API_KEY}`;
 
-  const res = await fetch(url, {
+  return fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -32,28 +39,47 @@ export async function extraerGastoDeImagen(imagenBase64: string): Promise<GastoE
       ],
     }),
   });
+}
 
-  if (!res.ok) {
-    console.error("Error Gemini:", await res.text());
-    return null;
+export async function extraerGastoDeImagen(imagenBase64: string): Promise<GastoExtraido | null> {
+  let ultimoError: string | null = null;
+
+  for (let intento = 1; intento <= MAX_INTENTOS; intento++) {
+    const res = await llamarGemini(imagenBase64);
+
+    if (res.ok) {
+      const data = await res.json();
+      const textoRespuesta: string | undefined = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!textoRespuesta) return null;
+
+      try {
+        const limpio = textoRespuesta.replace(/```json|```/g, "").trim();
+        const parseado = JSON.parse(limpio);
+        if (parseado.error) return null;
+        if (typeof parseado.monto !== "number") return null;
+
+        return {
+          monto: parseado.monto,
+          descripcion: parseado.descripcion ?? "Gasto sin descripción",
+          proveedor: parseado.proveedor ?? null,
+        };
+      } catch {
+        return null;
+      }
+    }
+
+    ultimoError = await res.text();
+    const esReintentable = res.status === 503 || res.status === 429;
+
+    console.error(`Error Gemini (intento ${intento}/${MAX_INTENTOS}, status ${res.status}):`, ultimoError);
+
+    if (!esReintentable || intento === MAX_INTENTOS) {
+      break;
+    }
+
+    await esperar(ESPERA_BASE_MS * intento);
   }
 
-  const data = await res.json();
-  const textoRespuesta: string | undefined = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!textoRespuesta) return null;
-
-  try {
-    const limpio = textoRespuesta.replace(/```json|```/g, "").trim();
-    const parseado = JSON.parse(limpio);
-    if (parseado.error) return null;
-    if (typeof parseado.monto !== "number") return null;
-
-    return {
-      monto: parseado.monto,
-      descripcion: parseado.descripcion ?? "Gasto sin descripción",
-      proveedor: parseado.proveedor ?? null,
-    };
-  } catch {
-    return null;
-  }
+  console.error("Gemini falló después de todos los reintentos:", ultimoError);
+  return null;
 }
