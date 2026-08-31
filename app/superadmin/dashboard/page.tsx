@@ -44,6 +44,20 @@ function construirLinkWhatsApp(telefono: string, mensaje: string) {
   return `https://wa.me/${soloDigitos}?text=${encodeURIComponent(mensaje)}`;
 }
 
+const DIAS_ANTICIPACION_RENOVACION = 15;
+
+function puedeRenovar(licencia: Licencia | null): boolean {
+  if (!licencia) return true;
+  if (licencia.tipo === "demo") return true;
+  if (!licencia.fecha_proximo_vencimiento) return true;
+
+  const hoy = new Date();
+  const vencimiento = new Date(licencia.fecha_proximo_vencimiento + "T00:00:00");
+  const diasParaVencer = Math.ceil((vencimiento.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
+
+  return diasParaVencer <= DIAS_ANTICIPACION_RENOVACION;
+}
+
 export default function SuperadminDashboard() {
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
@@ -187,11 +201,16 @@ export default function SuperadminDashboard() {
               <div className="flex flex-wrap gap-2 pt-1">
                 <button
                   onClick={() => accionEmpresa(empresa.id, "renovar")}
-                  disabled={!!accionEnCurso}
-                  className="rounded-lg bg-[#0E7C7B] text-white text-xs px-3 py-1.5 font-medium disabled:opacity-50"
+                  disabled={!!accionEnCurso || !puedeRenovar(empresa.licencia)}
+                  className="rounded-lg bg-[#0E7C7B] text-white text-xs px-3 py-1.5 font-medium disabled:opacity-40"
                 >
                   {accionEnCurso === `${empresa.id}:renovar` ? "Procesando..." : "Registrar pago / renovar"}
                 </button>
+                {empresa.licencia?.tipo === "pago" && !puedeRenovar(empresa.licencia) && (
+                  <p className="w-full text-[11px] text-gray-400">
+                    La renovación se habilita 15 días antes del vencimiento
+                  </p>
+                )}
                 {empresa.estado !== "bloqueada" ? (
                   <button
                     onClick={() => accionEmpresa(empresa.id, "bloquear")}
