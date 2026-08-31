@@ -680,6 +680,7 @@ function TabVentas({
   const [clienteNota, setClienteNota] = useState("");
   const [clienteTelefono, setClienteTelefono] = useState("");
   const [errorLocal, setErrorLocal] = useState("");
+  const [procesandoVenta, setProcesandoVenta] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [edit, setEdit] = useState<{
     litros: string;
@@ -696,31 +697,44 @@ function TabVentas({
   const excedeStock = litrosNum > camion.litros_actual;
   const tieneCredito = (parseFloat(credito) || 0) > 0;
   const faltanDatosCliente = tieneCredito && (!clienteNota.trim() || !clienteTelefono.trim());
+  const importeEnCero = importeTotal <= 0;
 
   async function registrar() {
+    if (procesandoVenta) return; // evita doble-toque mientras procesa
     setErrorLocal("");
+
+    if (importeEnCero) {
+      setErrorLocal("El importe total no puede ser 0. Cargá efectivo, transferencia o crédito.");
+      return;
+    }
     if (faltanDatosCliente) {
       setErrorLocal("Para ventas a crédito hace falta el nombre y el teléfono del cliente.");
       return;
     }
-    const ok = await onRegistrar({
-      tipo: "venta",
-      litros: litrosNum,
-      precio_litro: litrosNum > 0 ? importeTotal / litrosNum : null,
-      monto: importeTotal,
-      efectivo: parseFloat(efectivo) || 0,
-      transferencia: parseFloat(transferencia) || 0,
-      credito: parseFloat(credito) || 0,
-      cliente_nota: clienteNota || null,
-      cliente_telefono: clienteTelefono || null,
-    });
-    if (ok) {
-      setLitros("");
-      setEfectivo("");
-      setTransferencia("");
-      setCredito("");
-      setClienteNota("");
-      setClienteTelefono("");
+
+    setProcesandoVenta(true);
+    try {
+      const ok = await onRegistrar({
+        tipo: "venta",
+        litros: litrosNum,
+        precio_litro: litrosNum > 0 ? importeTotal / litrosNum : null,
+        monto: importeTotal,
+        efectivo: parseFloat(efectivo) || 0,
+        transferencia: parseFloat(transferencia) || 0,
+        credito: parseFloat(credito) || 0,
+        cliente_nota: clienteNota || null,
+        cliente_telefono: clienteTelefono || null,
+      });
+      if (ok) {
+        setLitros("");
+        setEfectivo("");
+        setTransferencia("");
+        setCredito("");
+        setClienteNota("");
+        setClienteTelefono("");
+      }
+    } finally {
+      setProcesandoVenta(false);
     }
   }
 
@@ -823,15 +837,14 @@ function TabVentas({
       <p className="pt-1">
         Importe total: <strong>{importeTotal.toFixed(2)}</strong>
       </p>
-
       {errorLocal && <p className="text-[var(--color-danger)] text-sm">{errorLocal}</p>}
 
       <button
         onClick={registrar}
-        disabled={excedeStock || faltanDatosCliente}
+        disabled={excedeStock || faltanDatosCliente || importeEnCero || procesandoVenta}
         className="w-full rounded-xl bg-[var(--color-accent)] text-white font-semibold py-2.5 active:scale-[0.98] transition disabled:opacity-40"
       >
-        Registrar venta
+        {procesandoVenta ? "Procesando..." : "Registrar venta"}
       </button>
 
       <div className="pt-3 space-y-1">
