@@ -2261,6 +2261,7 @@ function PanelFinanzas() {
   const [cargando, setCargando] = useState(true);
   const [camiones, setCamiones] = useState<Camion[]>([]);
   const [productos, setProductos] = useState<Producto[]>([]);
+  const [otrosGastos, setOtrosGastos] = useState<any[]>([]);
 
   // Formulario de registro
   const [tipo, setTipo] = useState<TipoFinanzasMovimiento>("capital_inyectado");
@@ -2294,6 +2295,9 @@ function PanelFinanzas() {
     const jsonCamiones = await resCamiones.json();
     setCamiones(jsonCamiones.camiones ?? []);
     const jsonProductos = await resProductos.json();
+    const resMovimientos = await fetch("/api/admin/finanzas/movimientos?limite=200");
+    const jsonMovimientos = await resMovimientos.json();
+    setOtrosGastos((jsonMovimientos.movimientos ?? []).filter((m: any) => m.tipo === "gasto_otro"));
     setProductos(jsonProductos.productos ?? []);
     setCargando(false);
   }
@@ -2544,6 +2548,25 @@ function PanelFinanzas() {
               <Legend wrapperStyle={{ fontSize: 11 }} />
             </PieChart>
           </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* Otros gastos (Telegram / manual) */}
+      {otrosGastos.length > 0 && (
+        <div className="bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4 mb-4">
+          <p className="font-display font-semibold text-sm mb-2 text-[var(--color-ink)]">🧾 Otros gastos</p>
+          <div className="space-y-1">
+            {otrosGastos.map((m) => (
+              <div key={m.id} className="text-sm border-b pb-1 flex justify-between">
+                <span>
+                  {m.descripcion || "Otro gasto"}
+                  {m.proveedor ? ` · ${m.proveedor}` : ""}
+                  {m.camion ? ` · ${m.camion.matricula || m.camion.nombre}` : ""}
+                </span>
+                <span className="text-[var(--color-danger)]">-{(m.monto ?? 0).toFixed(2)}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
