@@ -2262,6 +2262,8 @@ function PanelFinanzas() {
   const [camiones, setCamiones] = useState<Camion[]>([]);
   const [productos, setProductos] = useState<Producto[]>([]);
   const [otrosGastos, setOtrosGastos] = useState<any[]>([]);
+  const [todosMovimientos, setTodosMovimientos] = useState<any[]>([]);
+  const [mostrarTodos, setMostrarTodos] = useState(false);
 
   // Formulario de registro
   const [tipo, setTipo] = useState<TipoFinanzasMovimiento>("capital_inyectado");
@@ -2298,6 +2300,7 @@ function PanelFinanzas() {
     const resMovimientos = await fetch("/api/admin/finanzas/movimientos?limite=200");
     const jsonMovimientos = await resMovimientos.json();
     setOtrosGastos((jsonMovimientos.movimientos ?? []).filter((m: any) => m.tipo === "gasto_otro"));
+    setTodosMovimientos(jsonMovimientos.movimientos ?? []);
     setProductos(jsonProductos.productos ?? []);
     setCargando(false);
   }
@@ -2552,23 +2555,58 @@ function PanelFinanzas() {
       )}
 
       {/* Otros gastos (Telegram / manual) */}
-      {otrosGastos.length > 0 && (
-        <div className="bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4 mb-4">
-          <p className="font-display font-semibold text-sm mb-2 text-[var(--color-ink)]">🧾 Otros gastos</p>
-          <div className="space-y-1">
-            {otrosGastos.map((m) => (
-              <div key={m.id} className="text-sm border-b pb-1 flex justify-between">
-                <span>
-                  {m.descripcion || "Otro gasto"}
+      <div className="bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4 mb-4">
+        <p className="font-display font-semibold text-sm mb-2 text-[var(--color-ink)]">🧾 Otros gastos</p>
+        <div className="space-y-1">
+          {otrosGastos.length === 0 && (
+            <p className="text-sm text-[var(--color-ink-soft)]">Sin otros gastos registrados todavía.</p>
+          )}
+          {otrosGastos.map((m) => (
+            <div key={m.id} className="text-sm border-b pb-1 flex justify-between">
+              <span>
+                {m.descripcion || "Otro gasto"}
+                {m.proveedor ? ` · ${m.proveedor}` : ""}
+                {m.camion ? ` · ${m.camion.matricula || m.camion.nombre}` : ""}
+              </span>
+              <span className="text-[var(--color-danger)]">-{(m.monto ?? 0).toFixed(2)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Botón + lista completa de TODAS las partidas */}
+      <div className="bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4 mb-4">
+        <button
+          onClick={() => setMostrarTodos(!mostrarTodos)}
+          className="w-full text-sm font-semibold rounded-xl border border-[var(--color-border)] bg-white px-3 py-2 active:scale-95 transition"
+        >
+          {mostrarTodos ? "Ocultar todas las partidas" : "📋 Ver todas las partidas de gastos"}
+        </button>
+
+        {mostrarTodos && (
+          <div className="space-y-1 mt-3 max-h-96 overflow-y-auto">
+            {todosMovimientos.length === 0 && (
+              <p className="text-sm text-[var(--color-ink-soft)]">Sin movimientos registrados.</p>
+            )}
+            {todosMovimientos.map((m) => (
+              <div key={m.id} className="text-sm border-b pb-1">
+                <div className="flex justify-between">
+                  <span className="font-medium">{m.tipo}</span>
+                  <span className={m.monto >= 0 ? "text-[var(--color-ok)]" : "text-[var(--color-danger)]"}>
+                    {(m.monto ?? 0).toFixed(2)}
+                  </span>
+                </div>
+                <div className="text-xs text-[var(--color-ink-soft)]">
+                  {m.fecha}
+                  {m.descripcion ? ` · ${m.descripcion}` : ""}
                   {m.proveedor ? ` · ${m.proveedor}` : ""}
                   {m.camion ? ` · ${m.camion.matricula || m.camion.nombre}` : ""}
-                </span>
-                <span className="text-[var(--color-danger)]">-{(m.monto ?? 0).toFixed(2)}</span>
+                </div>
               </div>
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Registrar movimiento */}
       <div className="bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4 mb-4 space-y-2">
