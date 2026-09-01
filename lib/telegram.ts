@@ -21,6 +21,7 @@ export async function enviarBotones(
     body: JSON.stringify({
       chat_id: chatId,
       text: texto,
+      parse_mode: "Markdown",
       reply_markup: {
         inline_keyboard: botones.map((b) => [{ text: b.texto, callback_data: b.callback_data }]),
       },
