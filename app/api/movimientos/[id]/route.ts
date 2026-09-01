@@ -113,7 +113,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const litrosViejos = original.litros ?? 0;
     const litrosNuevos = litros ?? 0;
     const delta = litrosNuevos - litrosViejos;
-
     if (delta !== 0) {
       const { error: errorResta } = await supabaseAdmin.rpc("restar_litros", {
         camion_id_param: camion_id,
@@ -127,4 +126,42 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   return NextResponse.json({ movimiento: actualizado });
+}
+
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+
+  const { data: movimiento, error: errorBuscar } = await supabaseAdmin
+    .from("movimientos")
+    .select("*")
+    .eq("id", id)
+    .single();
+
+  if (errorBuscar || !movimiento) {
+    return NextResponse.json({ error: "Movimiento no encontrado" }, { status: 404 });
+  }
+
+  // Si era una venta con litros, devolvemos esos litros al camión antes de borrar el registro.
+  if (movimiento.tipo === "venta" && movimiento.litros) {
+    const { data: turno } = await supabaseAdmin
+      .from("turnos")
+      .select("camion_id")
+      .eq("id", movimiento.turno_id)
+      .single();
+
+    if (turno?.camion_id) {
+      await supabaseAdmin.rpc("restar_litros", {
+        camion_id_param: turno.camion_id,
+        litros_param: -movimiento.litros,
+      });
+    }
+  }
+
+  const { error: errorDelete } = await supabaseAdmin.from("movimientos").delete().eq("id", id);
+
+  if (errorDelete) {
+    return NextResponse.json({ error: errorDelete.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true });
 }

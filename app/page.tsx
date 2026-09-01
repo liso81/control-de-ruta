@@ -120,6 +120,19 @@ export default function Home() {
     return true;
   }
 
+  async function eliminarMovimiento(id: string) {
+    if (!turno || !camion) return false;
+    setError("");
+    const res = await fetch(`/api/movimientos/${id}`, { method: "DELETE" });
+    const json = await res.json().catch(() => ({}));
+    if (json.error) {
+      setError(json.error);
+      return false;
+    }
+    await Promise.all([cargarMovimientos(turno.id), recargarCamion(camion.id)]);
+    return true;
+  }
+
   async function editarMovimiento(id: string, datos: Partial<Movimiento>) {
     if (!turno || !camion) return false;
     setError("");
@@ -280,7 +293,7 @@ export default function Home() {
       )}
 
       {tab === "gastos" && (
-        <TabGastos movimientos={gastos} onRegistrar={registrarMovimiento} onEditar={editarMovimiento} />
+        <TabGastos movimientos={gastos} onRegistrar={registrarMovimiento} onEditar={editarMovimiento} onEliminar={eliminarMovimiento} />
       )}
     </main>
   );
@@ -928,38 +941,79 @@ function TabGastos({
   movimientos,
   onRegistrar,
   onEditar,
+  onEliminar,
 }: {
   movimientos: Movimiento[];
   onRegistrar: (datos: Partial<Movimiento> & { tipo: TipoMovimiento }) => Promise<boolean>;
   onEditar: (id: string, datos: Partial<Movimiento>) => Promise<boolean>;
+  onEliminar: (id: string) => Promise<boolean>;
 }) {
   const [categoria, setCategoria] = useState(CATEGORIAS_GASTO[0]);
   const [observacion, setObservacion] = useState("");
   const [monto, setMonto] = useState("");
+  const [procesando, setProcesando] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [categoriaEdit, setCategoriaEdit] = useState("");
+  const [observacionEdit, setObservacionEdit] = useState("");
   const [montoEdit, setMontoEdit] = useState("");
+  const [guardandoEdit, setGuardandoEdit] = useState(false);
+  const [eliminandoId, setEliminandoId] = useState<string | null>(null);
 
   const esOtros = categoria === "Otros";
+  const esOtrosEdit = categoriaEdit === "Otros";
 
   async function registrar() {
-    const categoriaFinal = esOtros && observacion.trim() ? `Otros: ${observacion.trim()}` : categoria;
-    const ok = await onRegistrar({ tipo: "gasto", categoria: categoriaFinal, monto: parseFloat(monto) || 0 });
-    if (ok) {
-      setMonto("");
-      setObservacion("");
+    if (procesando) return;
+    setProcesando(true);
+    try {
+      const categoriaFinal = esOtros && observacion.trim() ? `Otros: ${observacion.trim()}` : categoria;
+      const ok = await onRegistrar({ tipo: "gasto", categoria: categoriaFinal, monto: parseFloat(monto) || 0 });
+      if (ok) {
+        setMonto("");
+        setObservacion("");
+      }
+    } finally {
+      setProcesando(false);
     }
   }
 
   function empezarEdicion(m: Movimiento) {
     setEditandoId(m.id);
-    setCategoriaEdit(m.categoria ?? "");
+    const cat = m.categoria ?? "";
+    if (cat.startsWith("Otros:")) {
+      setCategoriaEdit("Otros");
+      setObservacionEdit(cat.replace("Otros:", "").trim());
+    } else if (CATEGORIAS_GASTO.includes(cat)) {
+      setCategoriaEdit(cat);
+      setObservacionEdit("");
+    } else {
+      setCategoriaEdit("Otros");
+      setObservacionEdit(cat);
+    }
     setMontoEdit(String(m.monto ?? ""));
   }
 
   async function guardarEdicion(m: Movimiento) {
-    const ok = await onEditar(m.id, { categoria: categoriaEdit, monto: parseFloat(montoEdit) || 0 });
-    if (ok) setEditandoId(null);
+    if (guardandoEdit) return;
+    setGuardandoEdit(true);
+    try {
+      const categoriaFinal = esOtrosEdit && observacionEdit.trim() ? `Otros: ${observacionEdit.trim()}` : categoriaEdit;
+      const ok = await onEditar(m.id, { categoria: categoriaFinal, monto: parseFloat(montoEdit) || 0 });
+      if (ok) setEditandoId(null);
+    } finally {
+      setGuardandoEdit(false);
+    }
+  }
+
+  async function eliminar(m: Movimiento) {
+    if (eliminandoId) return;
+    if (!window.confirm(`¿Eliminar este gasto de ${(m.monto ?? 0).toFixed(2)}? No se puede deshacer.`)) return;
+    setEliminandoId(m.id);
+    try {
+      await onEliminar(m.id);
+    } finally {
+      setEliminandoId(null);
+    }
   }
 
   return (
@@ -995,8 +1049,12 @@ function TabGastos({
         className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
       />
 
-      <button onClick={registrar} className="w-full rounded-xl bg-[var(--color-accent)] text-white font-semibold py-2.5 active:scale-[0.98] transition">
-        Registrar gasto
+      <button
+        onClick={registrar}
+        disabled={procesando}
+        className="w-full rounded-xl bg-[var(--color-accent)] text-white font-semibold py-2.5 active:scale-[0.98] transition disabled:opacity-50"
+      >
+        {procesando ? "Procesando..." : "Registrar gasto"}
       </button>
 
       <div className="pt-3 space-y-1">
@@ -1005,12 +1063,26 @@ function TabGastos({
           <div key={m.id} className="text-sm border-b pb-2">
             {editandoId === m.id ? (
               <div className="space-y-1 py-1">
-                <input
-                  type="text"
+                <select
                   value={categoriaEdit}
                   onChange={(e) => setCategoriaEdit(e.target.value)}
                   className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
-                />
+                >
+                  {CATEGORIAS_GASTO.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+                {esOtrosEdit && (
+                  <input
+                    type="text"
+                    value={observacionEdit}
+                    onChange={(e) => setObservacionEdit(e.target.value)}
+                    placeholder="Describí el gasto"
+                    className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
+                  />
+                )}
                 <input
                   type="number"
                   value={montoEdit}
@@ -1018,8 +1090,12 @@ function TabGastos({
                   className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
                 />
                 <div className="flex gap-2">
-                  <button onClick={() => guardarEdicion(m)} className="rounded-xl bg-[var(--color-accent)] text-white px-3 py-2 font-semibold flex-1 active:scale-[0.98] transition">
-                    Guardar
+                  <button
+                    onClick={() => guardarEdicion(m)}
+                    disabled={guardandoEdit}
+                    className="rounded-xl bg-[var(--color-accent)] text-white px-3 py-2 font-semibold flex-1 active:scale-[0.98] transition disabled:opacity-50"
+                  >
+                    {guardandoEdit ? "Guardando..." : "Guardar"}
                   </button>
                   <button onClick={() => setEditandoId(null)} className="rounded-xl border border-[var(--color-border)] bg-white text-[var(--color-ink)] px-3 py-2 font-semibold flex-1 active:scale-[0.98] transition">
                     Cancelar
@@ -1033,6 +1109,13 @@ function TabGastos({
                   {(m.monto ?? 0).toFixed(2)}
                   <button onClick={() => empezarEdicion(m)} className="text-xs font-medium rounded-lg border border-[var(--color-border)] bg-white px-2 py-1 active:scale-95 transition">
                     Editar
+                  </button>
+                  <button
+                    onClick={() => eliminar(m)}
+                    disabled={eliminandoId === m.id}
+                    className="text-xs font-medium rounded-lg border border-[var(--color-danger)] text-[var(--color-danger)] bg-white px-2 py-1 active:scale-95 transition disabled:opacity-50"
+                  >
+                    {eliminandoId === m.id ? "..." : "Eliminar"}
                   </button>
                 </span>
               </div>
