@@ -17,7 +17,11 @@ export async function GET() {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
-  const { data, error } = await supabaseAdmin.from("productos").select("*").order("nombre");
+  let query = supabaseAdmin.from("productos").select("*").order("nombre");
+  if (sesion.empresa_id) {
+    query = query.eq("empresa_id", sesion.empresa_id);
+  }
+  const { data, error } = await query;
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -46,6 +50,7 @@ export async function POST(request: Request) {
       unidad: unidad ?? null,
       precio_unitario,
       stock_actual: stock_actual ?? 0,
+      empresa_id: sesion.empresa_id ?? null,
     })
     .select()
     .single();
