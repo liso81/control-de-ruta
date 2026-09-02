@@ -4,6 +4,10 @@ import { verificarSesionSuperadmin } from "@/lib/superadmin-auth";
 import { crearLicenciaDemo } from "@/lib/licencias";
 import { supabaseAdmin } from "@/lib/supabase";
 
+function generarCodigo() {
+  return Math.random().toString(36).slice(2, 8).toUpperCase();
+}
+
 // GET: lista de empresas con su licencia vigente (la última emitida)
 export async function GET(req: NextRequest) {
   if (!(await verificarSesionSuperadmin(req))) {
@@ -14,7 +18,6 @@ export async function GET(req: NextRequest) {
     .from("empresas")
     .select("*")
     .order("created_at", { ascending: false });
-
   if (errEmpresas) {
     return NextResponse.json({ error: errEmpresas.message }, { status: 500 });
   }
@@ -23,7 +26,6 @@ export async function GET(req: NextRequest) {
     .from("licencias")
     .select("*")
     .order("created_at", { ascending: false });
-
   if (errLicencias) {
     return NextResponse.json({ error: errLicencias.message }, { status: 500 });
   }
@@ -36,7 +38,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ empresas: conLicencia });
 }
 
-// POST: crear empresa nueva + su licencia demo de 30 días
+// POST: crear empresa nueva + código único + su licencia demo de 30 días
 export async function POST(req: NextRequest) {
   if (!(await verificarSesionSuperadmin(req))) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
@@ -51,9 +53,21 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Generamos un código único, reintentando si por casualidad ya existe.
+  let codigo = generarCodigo();
+  for (let intento = 0; intento < 5; intento++) {
+    const { data: existente } = await supabaseAdmin
+      .from("empresas")
+      .select("id")
+      .eq("codigo", codigo)
+      .maybeSingle();
+    if (!existente) break;
+    codigo = generarCodigo();
+  }
+
   const { data: empresa, error: errEmpresa } = await supabaseAdmin
     .from("empresas")
-    .insert({ nombre, dueño_nombre, dueño_telefono, dueño_email, estado: "demo" })
+    .insert({ nombre, dueño_nombre, dueño_telefono, dueño_email, estado: "demo", codigo })
     .select()
     .single();
 

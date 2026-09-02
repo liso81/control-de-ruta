@@ -17,7 +17,11 @@ export async function GET() {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
-  const { data, error } = await supabaseAdmin.from("camiones").select("*").order("nombre");
+  let query = supabaseAdmin.from("camiones").select("*").order("nombre");
+  if (sesion.empresa_id) {
+    query = query.eq("empresa_id", sesion.empresa_id);
+  }
+  const { data, error } = await query;
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -50,6 +54,7 @@ export async function POST(request: Request) {
       km_por_litro: km_por_litro ?? null,
       km_base: km_base ?? 0,
       precio_gasoleo_litro: precio_gasoleo_litro ?? null,
+      empresa_id: sesion.empresa_id ?? null,
     })
     .select()
     .single();

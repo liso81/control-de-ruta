@@ -8,8 +8,8 @@ function obtenerClave() {
   return new TextEncoder().encode(JWT_SECRET);
 }
 
-export async function crearSesion(username: string) {
-  const token = await new SignJWT({ username })
+export async function crearSesion(username: string, empresa_id: string | null) {
+  const token = await new SignJWT({ username, empresa_id })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(`${MAX_AGE_SEGUNDOS}s`)
@@ -22,7 +22,7 @@ export async function verificarSesion(token: string | undefined) {
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, obtenerClave());
-    return payload as { username: string };
+    return payload as { username: string; empresa_id: string | null };
   } catch {
     return null;
   }
