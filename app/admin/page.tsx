@@ -1045,6 +1045,8 @@ function PanelMantenimientos() {
 
   return (
     <div>
+      <CartaMantenimientoPrevia />
+
       <h2 className="font-display font-semibold mb-2 text-[var(--color-ink)]">Elegí un camión</h2>
       {cargando && <p className="text-[var(--color-ink-soft)]">Cargando...</p>}
       <div className="space-y-2">
@@ -1060,6 +1062,148 @@ function PanelMantenimientos() {
         ))}
         {!cargando && camiones.length === 0 && <p className="text-[var(--color-ink-soft)]">No hay camiones cargados todavía.</p>}
       </div>
+    </div>
+  );
+}
+
+function CartaMantenimientoPrevia() {
+  const [mostrar, setMostrar] = useState(false);
+  const [items, setItems] = useState<any[]>([]);
+  const [productos, setProductos] = useState<Producto[]>([]);
+  const [cargando, setCargando] = useState(false);
+  const [tipo, setTipo] = useState(TIPOS_MANTENIMIENTO[0]);
+  const [productoId, setProductoId] = useState("");
+  const [cantidad, setCantidad] = useState("");
+  const [error, setError] = useState("");
+  const [guardando, setGuardando] = useState(false);
+
+  useEffect(() => {
+    if (mostrar) cargarTodo();
+  }, [mostrar]);
+
+  async function cargarTodo() {
+    setCargando(true);
+    const [resBom, resProductos] = await Promise.all([
+      fetch("/api/admin/mantenimiento-bom"),
+      fetch("/api/admin/productos"),
+    ]);
+    const jsonBom = await resBom.json();
+    const jsonProductos = await resProductos.json();
+    setItems(jsonBom.items ?? []);
+    setProductos(jsonProductos.productos ?? []);
+    setCargando(false);
+  }
+
+  async function agregar() {
+    setError("");
+    if (!productoId || !cantidad) {
+      setError("Elegí un producto y una cantidad");
+      return;
+    }
+    setGuardando(true);
+    const res = await fetch("/api/admin/mantenimiento-bom", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tipo, producto_id: productoId, cantidad_necesaria: parseFloat(cantidad) }),
+    });
+    const json = await res.json();
+    setGuardando(false);
+    if (json.error) {
+      setError(json.error);
+      return;
+    }
+    setProductoId("");
+    setCantidad("");
+    await cargarTodo();
+  }
+
+  async function eliminar(id: number) {
+    await fetch(`/api/admin/mantenimiento-bom/${id}`, { method: "DELETE" });
+    await cargarTodo();
+  }
+
+  return (
+    <div className="mb-4">
+      <button
+        onClick={() => setMostrar(!mostrar)}
+        className="text-sm font-medium rounded-xl border border-[var(--color-border)] px-3 py-1.5 active:scale-95 transition bg-white mb-2"
+      >
+        {mostrar ? "Ocultar" : "Configurar"} carta de mantenimiento previa
+      </button>
+
+      {mostrar && (
+        <div className="rounded-2xl border border-[var(--color-border)] bg-white shadow-sm p-4 space-y-2">
+          <p className="text-xs text-[var(--color-ink-soft)] mb-1">
+            Lista de insumos que normalmente necesita cada tipo de mantenimiento. Cuando un mantenimiento esté próximo o vencido, se compara contra tu Inventario y te avisa si falta algo.
+          </p>
+
+          {cargando && <p className="text-[var(--color-ink-soft)] text-sm">Cargando...</p>}
+
+          <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Tipo de mantenimiento</p>
+          <select
+            value={tipo}
+            onChange={(e) => setTipo(e.target.value)}
+            className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
+          >
+            {TIPOS_MANTENIMIENTO.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+
+          <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Producto (del Inventario)</p>
+          <select
+            value={productoId}
+            onChange={(e) => setProductoId(e.target.value)}
+            className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
+          >
+            <option value="">Elegí un producto</option>
+            {productos.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.nombre}
+              </option>
+            ))}
+          </select>
+
+          <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Cantidad que necesita</p>
+          <input
+            type="number"
+            value={cantidad}
+            onChange={(e) => setCantidad(e.target.value)}
+            placeholder="Ej: 4"
+            className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
+          />
+
+          {error && <p className="text-[var(--color-danger)] text-sm">{error}</p>}
+
+          <button
+            onClick={agregar}
+            disabled={guardando}
+            className="w-full rounded-xl bg-[var(--color-accent)] text-white font-semibold py-2.5 active:scale-[0.98] transition disabled:opacity-50"
+          >
+            {guardando ? "Guardando..." : "Agregar a la carta"}
+          </button>
+
+          {items.length > 0 && (
+            <div className="pt-2 space-y-1">
+              {items.map((it) => (
+                <div key={it.id} className="text-sm border-b pb-1 flex justify-between items-center">
+                  <span>
+                    <strong>{it.tipo}</strong> · {it.cantidad_necesaria} {it.producto?.unidad || ""} de {it.producto?.nombre}
+                  </span>
+                  <button
+                    onClick={() => eliminar(it.id)}
+                    className="text-xs font-medium rounded-lg border border-[var(--color-danger)] text-[var(--color-danger)] bg-white px-2 py-1 active:scale-95 transition"
+                  >
+                    Eliminar
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -1618,6 +1762,7 @@ function PanelReportes() {
   const [alertasParalizaciones, setAlertasParalizaciones] = useState<AlertaParalizacion[]>([]);
   const [alertasProvisionFondos, setAlertasProvisionFondos] = useState<{ camion_id: string; camion_nombre: string; camion_matricula: string }[]>([]);
   const [alertasProvisionSinAcreditar, setAlertasProvisionSinAcreditar] = useState<{ camion_id: string; camion_nombre: string; camion_matricula: string }[]>([]);
+  const [alertasInsumosFaltantes, setAlertasInsumosFaltantes] = useState<{ camion_id: string; camion_nombre: string; camion_matricula: string; tipo: string; producto_nombre: string; unidad: string | null; cantidad_necesaria: number; stock_actual: number; faltante: number }[]>([]);
   const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
@@ -1634,6 +1779,7 @@ function PanelReportes() {
     setAlertasParalizaciones(json.alertasParalizaciones ?? []);
     setAlertasProvisionFondos(json.alertasProvisionFondos ?? []);
     setAlertasProvisionSinAcreditar(json.alertasProvisionSinAcreditar ?? []);
+    setAlertasInsumosFaltantes(json.alertasInsumosFaltantes ?? []);
     setCargando(false);
   }
 
@@ -1646,7 +1792,8 @@ function PanelReportes() {
     alertasCxC.length === 0 &&
     alertasParalizaciones.length === 0 &&
     alertasProvisionFondos.length === 0 &&
-    alertasProvisionSinAcreditar.length === 0;
+    alertasProvisionSinAcreditar.length === 0 &&
+    alertasInsumosFaltantes.length === 0;
 
   return (
     <div>
@@ -1688,6 +1835,24 @@ function PanelReportes() {
                 </p>
                 <p className="text-sm">
                   Andá a Más → Provisión de Fondos → este camión → "Acreditar hoy". Esta alerta desaparece sola apenas lo hagas.
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {alertasInsumosFaltantes.length > 0 && (
+        <div className="mb-4">
+          <h3 className="font-display font-semibold text-sm mb-2 text-[var(--color-ink)]">Insumos que vas a necesitar</h3>
+          <div className="space-y-2">
+            {alertasInsumosFaltantes.map((a, i) => (
+              <div key={i} className="rounded-2xl shadow-sm p-4 border text-[var(--color-warn)] bg-[var(--color-warn-soft)] border-[var(--color-warn)]">
+                <p className="font-semibold text-sm">
+                  ⚡ {a.camion_matricula || a.camion_nombre} — {a.tipo}
+                </p>
+                <p className="text-sm">
+                  Necesitás {a.cantidad_necesaria} {a.unidad || ""} de {a.producto_nombre}, tenés {a.stock_actual} en inventario (faltan {a.faltante}).
                 </p>
               </div>
             ))}
