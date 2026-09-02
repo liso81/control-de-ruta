@@ -1224,7 +1224,7 @@ function DetalleMantenimientoCamion({ camion, onVolver }: { camion: Camion; onVo
   const [tipo, setTipo] = useState(TIPOS_MANTENIMIENTO[0]);
   const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
   const [km, setKm] = useState("");
-  const [lineasProductos, setLineasProductos] = useState<{ producto_id: string; cantidad: string }[]>([]);
+  const [lineasProductos, setLineasProductos] = useState<{ producto_id: string; cantidad: string; descripcion: string; observacion: string }[]>([]);
   const [costoTercero, setCostoTercero] = useState("");
   const [proveedorTercero, setProveedorTercero] = useState("");
   const [descripcionTercero, setDescripcionTercero] = useState("");
@@ -1276,14 +1276,14 @@ function DetalleMantenimientoCamion({ camion, onVolver }: { camion: Camion; onVo
   }
 
   function agregarLineaProducto() {
-    setLineasProductos([...lineasProductos, { producto_id: "", cantidad: "" }]);
+    setLineasProductos([...lineasProductos, { producto_id: "", cantidad: "", descripcion: "", observacion: "" }]);
   }
 
   function quitarLineaProducto(index: number) {
     setLineasProductos(lineasProductos.filter((_, i) => i !== index));
   }
 
-  function actualizarLinea(index: number, campo: "producto_id" | "cantidad", valor: string) {
+  function actualizarLinea(index: number, campo: "producto_id" | "cantidad" | "descripcion" | "observacion", valor: string) {
     const copia = [...lineasProductos];
     copia[index] = { ...copia[index], [campo]: valor };
     setLineasProductos(copia);
@@ -1298,7 +1298,12 @@ function DetalleMantenimientoCamion({ camion, onVolver }: { camion: Camion; onVo
 
     const productosValidos = lineasProductos
       .filter((l) => l.producto_id && l.cantidad)
-      .map((l) => ({ producto_id: l.producto_id, cantidad: parseFloat(l.cantidad) }));
+      .map((l) => ({
+        producto_id: l.producto_id,
+        cantidad: parseFloat(l.cantidad),
+        descripcion: l.descripcion.trim() || null,
+        observacion: l.observacion.trim() || null,
+      }));
 
     const res = await fetch("/api/admin/mantenimientos", {
       method: "POST",
@@ -1447,29 +1452,45 @@ function DetalleMantenimientoCamion({ camion, onVolver }: { camion: Camion; onVo
 
         <p className="text-xs font-medium text-[var(--color-ink-soft)] pt-2 block">Productos usados (del inventario)</p>
         {lineasProductos.map((linea, i) => (
-          <div key={i} className="flex gap-2">
-            <select
-              value={linea.producto_id}
-              onChange={(e) => actualizarLinea(i, "producto_id", e.target.value)}
-              className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 flex-1"
-            >
-              <option value="">Elegir producto</option>
-              {productosDisponibles.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.nombre} (stock: {p.stock_actual})
-                </option>
-              ))}
-            </select>
+          <div key={i} className="rounded-xl border border-[var(--color-border)] p-2 space-y-1">
+            <div className="flex gap-2">
+              <select
+                value={linea.producto_id}
+                onChange={(e) => actualizarLinea(i, "producto_id", e.target.value)}
+                className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 flex-1"
+              >
+                <option value="">Elegir producto</option>
+                {productosDisponibles.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nombre} (stock: {p.stock_actual})
+                  </option>
+                ))}
+              </select>
+              <input
+                type="number"
+                value={linea.cantidad}
+                onChange={(e) => actualizarLinea(i, "cantidad", e.target.value)}
+                placeholder="Cant."
+                className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 w-20"
+              />
+              <button onClick={() => quitarLineaProducto(i)} className="rounded-lg border border-[var(--color-border)] bg-white px-2 text-sm active:scale-95 transition">
+                ✕
+              </button>
+            </div>
             <input
-              type="number"
-              value={linea.cantidad}
-              onChange={(e) => actualizarLinea(i, "cantidad", e.target.value)}
-              placeholder="Cant."
-              className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 w-20"
+              type="text"
+              value={linea.descripcion}
+              onChange={(e) => actualizarLinea(i, "descripcion", e.target.value)}
+              placeholder="Descripción del producto"
+              className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm"
             />
-            <button onClick={() => quitarLineaProducto(i)} className="rounded-lg border border-[var(--color-border)] bg-white px-2 text-sm active:scale-95 transition">
-              ✕
-            </button>
+            <input
+              type="text"
+              value={linea.observacion}
+              onChange={(e) => actualizarLinea(i, "observacion", e.target.value)}
+              placeholder="Observación (opcional)"
+              className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm"
+            />
           </div>
         ))}
         <button onClick={agregarLineaProducto} className="text-sm font-medium rounded-xl border border-[var(--color-border)] px-3 py-1.5 active:scale-95 transition">

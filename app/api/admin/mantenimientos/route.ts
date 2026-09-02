@@ -19,7 +19,6 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const camion_id = searchParams.get("camion_id");
-
   if (!camion_id) {
     return NextResponse.json({ error: "Falta camion_id" }, { status: 400 });
   }
@@ -40,6 +39,8 @@ export async function GET(request: Request) {
 interface ProductoUsado {
   producto_id: string;
   cantidad: number;
+  descripcion?: string | null;
+  observacion?: string | null;
 }
 
 export async function POST(request: Request) {
@@ -86,6 +87,8 @@ export async function POST(request: Request) {
     cantidad: number;
     precio_unitario_momento: number;
     subtotal: number;
+    descripcion: string | null;
+    observacion: string | null;
   }[] = [];
 
   for (const p of productosUsados) {
@@ -115,6 +118,8 @@ export async function POST(request: Request) {
       cantidad: p.cantidad,
       precio_unitario_momento: producto.precio_unitario,
       subtotal,
+      descripcion: p.descripcion?.trim() || null,
+      observacion: p.observacion?.trim() || null,
     });
   }
 
