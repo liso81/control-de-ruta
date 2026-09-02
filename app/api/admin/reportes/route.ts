@@ -197,7 +197,6 @@ export async function GET() {
   const { data: provisiones } = await supabaseAdmin.from("provision_fondos").select("camion_id, datos");
   const provisionPorCamion = new Map((provisiones ?? []).map((p) => [p.camion_id, p.datos]));
 
-  // 1) Camiones que todavía no configuraron el fondo (nunca completaron el formulario)
   const alertasProvisionFondos = (camiones ?? [])
     .filter((c) => {
       const datos = provisionPorCamion.get(c.id);
@@ -209,7 +208,6 @@ export async function GET() {
       camion_matricula: c.matricula,
     }));
 
-  // 2) Camiones que SÍ tienen el fondo configurado, pero no acreditaron el monto de hoy
   const hoyStr = new Date().toISOString().slice(0, 10);
   const { data: creditosHoy } = await supabaseAdmin
     .from("mayor_provision")
@@ -231,6 +229,44 @@ export async function GET() {
       camion_matricula: c.matricula,
     }));
 
+  // --- Insumos que van a faltar para mantenimientos próximos/vencidos,
+  // según la "carta de mantenimiento previa" (mantenimiento_bom) ---
+  const { data: bom } = await supabaseAdmin
+    .from("mantenimiento_bom")
+    .select("*, producto:productos(nombre, unidad, stock_actual)");
+
+  const alertasInsumosFaltantes: {
+    camion_id: string;
+    camion_nombre: string;
+    camion_matricula: string;
+    tipo: string;
+    producto_nombre: string;
+    unidad: string | null;
+    cantidad_necesaria: number;
+    stock_actual: number;
+    faltante: number;
+  }[] = [];
+
+  for (const alerta of alertasMantenimiento) {
+    const requeridos = (bom ?? []).filter((b) => b.tipo === alerta.tipo);
+    for (const req of requeridos) {
+      const stockActual = req.producto?.stock_actual ?? 0;
+      if (stockActual < req.cantidad_necesaria) {
+        alertasInsumosFaltantes.push({
+          camion_id: alerta.camion_id,
+          camion_nombre: alerta.camion_nombre,
+          camion_matricula: alerta.camion_matricula,
+          tipo: alerta.tipo,
+          producto_nombre: req.producto?.nombre ?? "Producto",
+          unidad: req.producto?.unidad ?? null,
+          cantidad_necesaria: req.cantidad_necesaria,
+          stock_actual: stockActual,
+          faltante: req.cantidad_necesaria - stockActual,
+        });
+      }
+    }
+  }
+
   return NextResponse.json({
     alertasMantenimiento,
     alertasDocumentos,
@@ -238,5 +274,6 @@ export async function GET() {
     alertasParalizaciones,
     alertasProvisionFondos,
     alertasProvisionSinAcreditar,
+    alertasInsumosFaltantes,
   });
 }
