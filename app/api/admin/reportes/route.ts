@@ -172,7 +172,6 @@ export async function GET() {
 
   const hoy = new Date();
   const alertasCuentasPorCobrar = [];
-
   for (const cuenta of cuentasPendientes ?? []) {
     const fechaVenta = new Date(cuenta.fecha_venta);
     const diasAntiguedad = Math.round((hoy.getTime() - fechaVenta.getTime()) / (1000 * 60 * 60 * 24));
@@ -194,5 +193,50 @@ export async function GET() {
 
   alertasCuentasPorCobrar.sort((a, b) => b.dias_antiguedad - a.dias_antiguedad);
 
-  return NextResponse.json({ alertasMantenimiento, alertasDocumentos, alertasCuentasPorCobrar, alertasParalizaciones });
+  // --- Fondo de cobertura (Provisión de Fondos) ---
+  const { data: provisiones } = await supabaseAdmin.from("provision_fondos").select("camion_id, datos");
+  const provisionPorCamion = new Map((provisiones ?? []).map((p) => [p.camion_id, p.datos]));
+
+  // 1) Camiones que todavía no configuraron el fondo (nunca completaron el formulario)
+  const alertasProvisionFondos = (camiones ?? [])
+    .filter((c) => {
+      const datos = provisionPorCamion.get(c.id);
+      return !datos || Object.keys(datos).length === 0;
+    })
+    .map((c) => ({
+      camion_id: c.id,
+      camion_nombre: c.nombre,
+      camion_matricula: c.matricula,
+    }));
+
+  // 2) Camiones que SÍ tienen el fondo configurado, pero no acreditaron el monto de hoy
+  const hoyStr = new Date().toISOString().slice(0, 10);
+  const { data: creditosHoy } = await supabaseAdmin
+    .from("mayor_provision")
+    .select("camion_id")
+    .eq("fecha", hoyStr)
+    .eq("tipo", "credito");
+
+  const camionesConCreditoHoy = new Set((creditosHoy ?? []).map((c) => c.camion_id));
+
+  const alertasProvisionSinAcreditar = (camiones ?? [])
+    .filter((c) => {
+      const datos = provisionPorCamion.get(c.id);
+      const tieneConfig = datos && Object.keys(datos).length > 0;
+      return tieneConfig && !camionesConCreditoHoy.has(c.id);
+    })
+    .map((c) => ({
+      camion_id: c.id,
+      camion_nombre: c.nombre,
+      camion_matricula: c.matricula,
+    }));
+
+  return NextResponse.json({
+    alertasMantenimiento,
+    alertasDocumentos,
+    alertasCuentasPorCobrar,
+    alertasParalizaciones,
+    alertasProvisionFondos,
+    alertasProvisionSinAcreditar,
+  });
 }

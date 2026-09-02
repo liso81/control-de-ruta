@@ -1616,6 +1616,8 @@ function PanelReportes() {
   const [alertasDocumentos, setAlertasDocumentos] = useState<AlertaDocumento[]>([]);
   const [alertasCxC, setAlertasCxC] = useState<AlertaCuentaPorCobrar[]>([]);
   const [alertasParalizaciones, setAlertasParalizaciones] = useState<AlertaParalizacion[]>([]);
+  const [alertasProvisionFondos, setAlertasProvisionFondos] = useState<{ camion_id: string; camion_nombre: string; camion_matricula: string }[]>([]);
+  const [alertasProvisionSinAcreditar, setAlertasProvisionSinAcreditar] = useState<{ camion_id: string; camion_nombre: string; camion_matricula: string }[]>([]);
   const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
@@ -1630,6 +1632,8 @@ function PanelReportes() {
     setAlertasDocumentos(json.alertasDocumentos ?? []);
     setAlertasCxC(json.alertasCuentasPorCobrar ?? []);
     setAlertasParalizaciones(json.alertasParalizaciones ?? []);
+    setAlertasProvisionFondos(json.alertasProvisionFondos ?? []);
+    setAlertasProvisionSinAcreditar(json.alertasProvisionSinAcreditar ?? []);
     setCargando(false);
   }
 
@@ -1640,7 +1644,9 @@ function PanelReportes() {
     alertasMantenimiento.length === 0 &&
     alertasDocumentos.length === 0 &&
     alertasCxC.length === 0 &&
-    alertasParalizaciones.length === 0;
+    alertasParalizaciones.length === 0 &&
+    alertasProvisionFondos.length === 0 &&
+    alertasProvisionSinAcreditar.length === 0;
 
   return (
     <div>
@@ -1651,6 +1657,42 @@ function PanelReportes() {
         <p className="text-[var(--color-ok)] bg-[var(--color-ok-soft)] border border-[var(--color-ok)] rounded-lg p-3">
           ✅ Todo al día. No hay alertas de mantenimiento ni documentos por vencer.
         </p>
+      )}
+
+      {alertasProvisionFondos.length > 0 && (
+        <div className="mb-4">
+          <h3 className="font-display font-semibold text-sm mb-2 text-[var(--color-ink)]">Fondo de cobertura sin crear</h3>
+          <div className="space-y-2">
+            {alertasProvisionFondos.map((a) => (
+              <div key={a.camion_id} className="rounded-2xl shadow-sm p-4 border text-[var(--color-warn)] bg-[var(--color-warn-soft)] border-[var(--color-warn)]">
+                <p className="font-semibold text-sm">
+                  ⚡ {a.camion_matricula || a.camion_nombre} — Falta crear el fondo de cobertura
+                </p>
+                <p className="text-sm">
+                  Andá a Más → Provisión de Fondos y completá los datos de este camión. Esta alerta desaparece sola apenas lo crees.
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {alertasProvisionSinAcreditar.length > 0 && (
+        <div className="mb-4">
+          <h3 className="font-display font-semibold text-sm mb-2 text-[var(--color-ink)]">Fondo de cobertura sin acreditar hoy</h3>
+          <div className="space-y-2">
+            {alertasProvisionSinAcreditar.map((a) => (
+              <div key={a.camion_id} className="rounded-2xl shadow-sm p-4 border text-[var(--color-warn)] bg-[var(--color-warn-soft)] border-[var(--color-warn)]">
+                <p className="font-semibold text-sm">
+                  ⚡ {a.camion_matricula || a.camion_nombre} — Todavía no acreditaste la provisión de hoy
+                </p>
+                <p className="text-sm">
+                  Andá a Más → Provisión de Fondos → este camión → "Acreditar hoy". Esta alerta desaparece sola apenas lo hagas.
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       {alertasParalizaciones.length > 0 && (
