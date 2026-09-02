@@ -235,9 +235,22 @@ export default function Home() {
     );
   }
 
+  function salir() {
+    localStorage.removeItem("camion_id");
+    window.location.reload();
+  }
+
   return (
     <main className="min-h-screen p-4 max-w-md mx-auto" style={{ background: "var(--color-bg)" }}>
-      <h1 className="font-display text-3xl font-bold mb-1 text-[var(--color-ink)]">CONTROL DE RUTA</h1>
+      <div className="flex justify-between items-start mb-1">
+        <h1 className="font-display text-3xl font-bold text-[var(--color-ink)]">CONTROL DE RUTA</h1>
+        <button
+          onClick={salir}
+          className="text-xs font-medium rounded-xl border border-[var(--color-border)] px-3 py-1.5 active:scale-95 transition bg-white"
+        >
+          Salir
+        </button>
+      </div>
       <p className="text-[var(--color-ink-soft)] mb-2">
         {turno.chofer_nombre} · {camion.matricula || camion.nombre}
       </p>
