@@ -306,7 +306,7 @@ export default function Home() {
       )}
 
       {tab === "ventas" && (
-        <TabVentas movimientos={ventas} camion={camion} onRegistrar={registrarMovimiento} onEditar={editarMovimiento} />
+        <TabVentas movimientos={ventas} camion={camion} onRegistrar={registrarMovimiento} onEditar={editarMovimiento} onEliminar={eliminarMovimiento} />
       )}
 
       {tab === "gastos" && (
@@ -697,11 +697,13 @@ function TabVentas({
   camion,
   onRegistrar,
   onEditar,
+  onEliminar,
 }: {
   movimientos: Movimiento[];
   camion: Camion;
   onRegistrar: (datos: Partial<Movimiento> & { tipo: TipoMovimiento }) => Promise<boolean>;
   onEditar: (id: string, datos: Partial<Movimiento>) => Promise<boolean>;
+  onEliminar: (id: string) => Promise<boolean>;
 }) {
   const [litros, setLitros] = useState("");
   const [efectivo, setEfectivo] = useState("");
@@ -710,6 +712,7 @@ function TabVentas({
   const [clienteNota, setClienteNota] = useState("");
   const [clienteTelefono, setClienteTelefono] = useState("");
   const [errorLocal, setErrorLocal] = useState("");
+  const [eliminandoId, setEliminandoId] = useState<string | null>(null);
   const [procesandoVenta, setProcesandoVenta] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [edit, setEdit] = useState<{
@@ -943,6 +946,18 @@ function TabVentas({
                   {(m.monto ?? 0).toFixed(2)}
                   <button onClick={() => empezarEdicion(m)} className="text-xs font-medium rounded-lg border border-[var(--color-border)] bg-white px-2 py-1 active:scale-95 transition">
                     Editar
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!window.confirm(`¿Eliminar esta venta de ${(m.monto ?? 0).toFixed(2)}? No se puede deshacer.`)) return;
+                      setEliminandoId(m.id);
+                      await onEliminar(m.id);
+                      setEliminandoId(null);
+                    }}
+                    disabled={eliminandoId === m.id}
+                    className="text-xs font-medium rounded-lg border border-[var(--color-danger)] text-[var(--color-danger)] bg-white px-2 py-1 active:scale-95 transition disabled:opacity-50"
+                  >
+                    {eliminandoId === m.id ? "..." : "Eliminar"}
                   </button>
                 </span>
               </div>
