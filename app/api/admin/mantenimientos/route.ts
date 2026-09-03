@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verificarSesion, NOMBRE_COOKIE } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase";
+import { camionPerteneceAEmpresa } from "@/lib/empresa";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,10 @@ export async function GET(request: Request) {
   const camion_id = searchParams.get("camion_id");
   if (!camion_id) {
     return NextResponse.json({ error: "Falta camion_id" }, { status: 400 });
+  }
+
+  if (!(await camionPerteneceAEmpresa(camion_id, sesion.empresa_id))) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
   const { data, error } = await supabaseAdmin
@@ -74,6 +79,10 @@ export async function POST(request: Request) {
 
   if (!camion_id || !tipo) {
     return NextResponse.json({ error: "Faltan camion_id o tipo" }, { status: 400 });
+  }
+
+  if (!(await camionPerteneceAEmpresa(camion_id, sesion.empresa_id))) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
   const productosUsados = productos ?? [];

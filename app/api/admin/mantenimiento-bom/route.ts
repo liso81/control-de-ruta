@@ -17,10 +17,14 @@ export async function GET() {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
-  const { data, error } = await supabaseAdmin
+  let query = supabaseAdmin
     .from("mantenimiento_bom")
     .select("*, producto:productos(nombre, unidad, stock_actual)")
     .order("tipo");
+  if (sesion.empresa_id) {
+    query = query.eq("empresa_id", sesion.empresa_id);
+  }
+  const { data, error } = await query;
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -45,7 +49,7 @@ export async function POST(request: Request) {
   const { data, error } = await supabaseAdmin
     .from("mantenimiento_bom")
     .upsert(
-      { tipo, producto_id, cantidad_necesaria },
+      { tipo, producto_id, cantidad_necesaria, empresa_id: sesion.empresa_id ?? null },
       { onConflict: "tipo,producto_id" }
     )
     .select("*, producto:productos(nombre, unidad, stock_actual)")

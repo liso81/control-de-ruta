@@ -47,7 +47,11 @@ export async function GET() {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
-  const { data: camiones } = await supabaseAdmin.from("camiones").select("*");
+  let queryCamiones = supabaseAdmin.from("camiones").select("*");
+  if (sesion.empresa_id) {
+    queryCamiones = queryCamiones.eq("empresa_id", sesion.empresa_id);
+  }
+  const { data: camiones } = await queryCamiones;
 
   const alertasMantenimiento = [];
   const alertasDocumentos = [];
@@ -165,10 +169,15 @@ export async function GET() {
   alertasParalizaciones.sort((a, b) => b.diasParado - a.diasParado);
 
   // --- Cuentas por cobrar envejecidas ---
-  const { data: cuentasPendientes } = await supabaseAdmin
-    .from("cuentas_por_cobrar")
-    .select("*, camion:camiones(nombre, matricula)")
-    .eq("estado", "pendiente");
+  const camionIds = (camiones ?? []).map((c) => c.id);
+  const { data: cuentasPendientes } =
+    camionIds.length > 0
+      ? await supabaseAdmin
+          .from("cuentas_por_cobrar")
+          .select("*, camion:camiones(nombre, matricula)")
+          .eq("estado", "pendiente")
+          .in("camion_id", camionIds)
+      : { data: [] };
 
   const hoy = new Date();
   const alertasCuentasPorCobrar = [];
@@ -194,7 +203,10 @@ export async function GET() {
   alertasCuentasPorCobrar.sort((a, b) => b.dias_antiguedad - a.dias_antiguedad);
 
   // --- Fondo de cobertura (Provisión de Fondos) ---
-  const { data: provisiones } = await supabaseAdmin.from("provision_fondos").select("camion_id, datos");
+  const { data: provisiones } =
+    camionIds.length > 0
+      ? await supabaseAdmin.from("provision_fondos").select("camion_id, datos").in("camion_id", camionIds)
+      : { data: [] };
   const provisionPorCamion = new Map((provisiones ?? []).map((p) => [p.camion_id, p.datos]));
 
   const alertasProvisionFondos = (camiones ?? [])
@@ -209,11 +221,15 @@ export async function GET() {
     }));
 
   const hoyStr = new Date().toISOString().slice(0, 10);
-  const { data: creditosHoy } = await supabaseAdmin
-    .from("mayor_provision")
-    .select("camion_id")
-    .eq("fecha", hoyStr)
-    .eq("tipo", "credito");
+  const { data: creditosHoy } =
+    camionIds.length > 0
+      ? await supabaseAdmin
+          .from("mayor_provision")
+          .select("camion_id")
+          .eq("fecha", hoyStr)
+          .eq("tipo", "credito")
+          .in("camion_id", camionIds)
+      : { data: [] };
 
   const camionesConCreditoHoy = new Set((creditosHoy ?? []).map((c) => c.camion_id));
 
@@ -231,9 +247,11 @@ export async function GET() {
 
   // --- Insumos que van a faltar para mantenimientos próximos/vencidos,
   // según la "carta de mantenimiento previa" (mantenimiento_bom) ---
-  const { data: bom } = await supabaseAdmin
-    .from("mantenimiento_bom")
-    .select("*, producto:productos(nombre, unidad, stock_actual)");
+  let queryBom = supabaseAdmin.from("mantenimiento_bom").select("*, producto:productos(nombre, unidad, stock_actual)");
+  if (sesion.empresa_id) {
+    queryBom = queryBom.eq("empresa_id", sesion.empresa_id);
+  }
+  const { data: bom } = await queryBom;
 
   const alertasInsumosFaltantes: {
     camion_id: string;
