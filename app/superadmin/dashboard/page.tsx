@@ -20,6 +20,7 @@ type Empresa = {
   dueño_telefono: string;
   estado: "demo" | "activa" | "bloqueada" | "cancelada";
   licencia: Licencia | null;
+  codigo: string | null;
 };
 
 type Notificacion = {
@@ -174,6 +175,11 @@ export default function SuperadminDashboard() {
                   <p className="text-xs text-gray-500">
                     {empresa.dueño_nombre} · {empresa.dueño_telefono}
                   </p>
+                  {empresa.codigo && (
+                    <p className="text-xs mt-1">
+                      Código: <span className="font-mono font-semibold text-[#0E7C7B]">{empresa.codigo}</span>
+                    </p>
+                  )}
                 </div>
                 <span
                   className={`text-xs px-2 py-1 rounded-full font-medium ${COLOR_ESTADO[empresa.estado]}`}
@@ -253,11 +259,14 @@ function FormularioNuevaEmpresa({ onClose, onCreada }: { onClose: () => void; on
   const [dueñoTelefono, setDueñoTelefono] = useState("");
   const [dueñoEmail, setDueñoEmail] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const [codigoCreado, setCodigoCreado] = useState<string | null>(null);
+  const [nombreCreado, setNombreCreado] = useState("");
+  const [copiado, setCopiado] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setEnviando(true);
-    await fetch("/api/superadmin/empresas", {
+    const res = await fetch("/api/superadmin/empresas", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -267,8 +276,48 @@ function FormularioNuevaEmpresa({ onClose, onCreada }: { onClose: () => void; on
         dueño_email: dueñoEmail || null,
       }),
     });
+    const json = await res.json();
     setEnviando(false);
-    onCreada();
+    setNombreCreado(nombre);
+    setCodigoCreado(json.empresa?.codigo ?? null);
+  }
+
+  function copiarCodigo() {
+    if (!codigoCreado) return;
+    navigator.clipboard.writeText(codigoCreado);
+    setCopiado(true);
+    setTimeout(() => setCopiado(false), 2000);
+  }
+
+  if (codigoCreado) {
+    return (
+      <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-20">
+        <div className="w-full sm:max-w-sm bg-white rounded-t-2xl sm:rounded-2xl p-6 space-y-4">
+          <h2 className="font-semibold" style={{ fontFamily: "Space Grotesk, sans-serif" }}>
+            ✅ {nombreCreado} creada
+          </h2>
+          <p className="text-sm text-gray-500">
+            Este es el código de la empresa. Se lo tenés que dar al dueño — lo va a necesitar para vincular su
+            Telegram y a los choferes.
+          </p>
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-center">
+            <p className="font-mono text-2xl font-bold text-[#0E7C7B] tracking-widest">{codigoCreado}</p>
+          </div>
+          <button
+            onClick={copiarCodigo}
+            className="w-full rounded-xl border border-gray-200 py-3 text-sm font-medium"
+          >
+            {copiado ? "¡Copiado!" : "Copiar código"}
+          </button>
+          <button
+            onClick={onCreada}
+            className="w-full rounded-xl bg-[#0E7C7B] text-white py-3 text-sm font-medium"
+          >
+            Listo
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
