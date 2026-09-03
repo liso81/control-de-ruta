@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verificarSesionSuperadmin } from "@/lib/superadmin-auth";
 import { crearLicenciaDemo } from "@/lib/licencias";
 import { supabaseAdmin } from "@/lib/supabase";
+import bcrypt from "bcryptjs";
 
 function generarCodigo() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
@@ -38,19 +39,36 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ empresas: conLicencia });
 }
 
-// POST: crear empresa nueva + código único + su licencia demo de 30 días
+// POST: crear empresa nueva + código único + licencia demo + login del dueño
 export async function POST(req: NextRequest) {
   if (!(await verificarSesionSuperadmin(req))) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
-  const { nombre, dueño_nombre, dueño_telefono, dueño_email } = await req.json();
+  const { nombre, dueño_nombre, dueño_telefono, dueño_email, admin_username, admin_password } = await req.json();
 
   if (!nombre || !dueño_nombre || !dueño_telefono) {
     return NextResponse.json(
       { error: "Faltan datos: nombre, dueño_nombre y dueño_telefono son obligatorios" },
       { status: 400 }
     );
+  }
+
+  if (!admin_username || !admin_password) {
+    return NextResponse.json(
+      { error: "Faltan admin_username o admin_password para crear el login del dueño" },
+      { status: 400 }
+    );
+  }
+
+  const { data: usuarioExistente } = await supabaseAdmin
+    .from("admins")
+    .select("id")
+    .eq("username", admin_username)
+    .maybeSingle();
+
+  if (usuarioExistente) {
+    return NextResponse.json({ error: "Ese nombre de usuario ya está en uso, elegí otro" }, { status: 400 });
   }
 
   // Generamos un código único, reintentando si por casualidad ya existe.
@@ -84,6 +102,17 @@ export async function POST(req: NextRequest) {
 
   if (errLicencia) {
     return NextResponse.json({ error: errLicencia.message }, { status: 500 });
+  }
+
+  const passwordHash = await bcrypt.hash(admin_password, 10);
+  const { error: errAdmin } = await supabaseAdmin.from("admins").insert({
+    username: admin_username,
+    password_hash: passwordHash,
+    empresa_id: empresa.id,
+  });
+
+  if (errAdmin) {
+    return NextResponse.json({ error: `Empresa creada, pero falló el login: ${errAdmin.message}` }, { status: 500 });
   }
 
   return NextResponse.json({ empresa, licencia }, { status: 201 });
