@@ -10,16 +10,31 @@ export const dynamic = "force-dynamic";
 async function obtenerVinculo(chatId: number) {
   const { data } = await supabaseAdmin
     .from("telegram_vinculos")
-    .select("camion_id, rol")
+    .select("camion_id, rol, empresa_id")
     .eq("chat_id", chatId)
     .maybeSingle();
   return data ?? null;
 }
 
-async function pedirVinculacion(chatId: number) {
+async function buscarEmpresaPorCodigo(texto: string) {
+  const codigo = texto.trim().toUpperCase();
+  if (!codigo) return null;
+  const { data } = await supabaseAdmin.from("empresas").select("id, nombre").eq("codigo", codigo).maybeSingle();
+  return data ?? null;
+}
+
+async function pedirCodigoEmpresa(chatId: number) {
+  await enviarMensaje(
+    chatId,
+    "👋 Para empezar, escribime el *código de tu empresa* (te lo tiene que dar el dueño)."
+  );
+}
+
+async function pedirVinculacion(chatId: number, empresaId: string) {
   const { data: camiones } = await supabaseAdmin
     .from("camiones")
     .select("id, nombre, matricula")
+    .eq("empresa_id", empresaId)
     .order("nombre");
 
   const botones = (camiones ?? []).map((c) => ({
@@ -36,7 +51,7 @@ async function pedirVinculacion(chatId: number) {
 }
 
 // ---- Flujo CHOFER: se autoclasifica con Gemini y se registra directo ----
-async function registrarGastoAutomatico(chatId: number, camionId: string, fotoFileId: string) {
+async function registrarGastoAutomatico(chatId: number, camionId: string, empresaId: string, fotoFileId: string) {
   await enviarMensaje(chatId, "📸 Recibido, analizando el comprobante...");
   const imagenBase64 = await descargarFotoBase64(fotoFileId);
   const gasto = await extraerGastoDeImagen(imagenBase64);
@@ -52,6 +67,7 @@ async function registrarGastoAutomatico(chatId: number, camionId: string, fotoFi
   const resultado = await registrarGastoEnPanel({
     categoria: gasto.categoria,
     camionId,
+    empresaId,
     monto: gasto.monto,
     descripcion: gasto.descripcion,
     proveedor: gasto.proveedor,
@@ -125,7 +141,8 @@ async function finalizarPendiente(
   chatId: number,
   pendienteId: number,
   categoria: "insumo" | "otro" | "servicio_tercero",
-  camionId: string | null
+  camionId: string | null,
+  empresaId: string | null
 ) {
   const { data: pendiente } = await supabaseAdmin
     .from("telegram_gastos_pendientes")
@@ -141,6 +158,7 @@ async function finalizarPendiente(
   const resultado = await registrarGastoEnPanel({
     categoria,
     camionId,
+    empresaId,
     monto: pendiente.monto,
     descripcion: pendiente.descripcion,
     proveedor: pendiente.proveedor,
@@ -190,6 +208,9 @@ async function procesarUpdate(update: any) {
         return;
       }
 
+      const vinculo = await obtenerVinculo(chatId);
+      const empresaId = vinculo?.empresa_id ?? null;
+
       if (data.startsWith("destino:")) {
         const [, tipoDestino, pendienteIdStr] = data.split(":");
         const pendienteId = Number(pendienteIdStr);
@@ -198,6 +219,7 @@ async function procesarUpdate(update: any) {
           const { data: camiones } = await supabaseAdmin
             .from("camiones")
             .select("id, nombre, matricula")
+            .eq("empresa_id", empresaId ?? "")
             .order("nombre");
 
           await responderCallback(update.callback_query.id, "Elegí el camión");
@@ -214,7 +236,7 @@ async function procesarUpdate(update: any) {
 
         await responderCallback(update.callback_query.id, "Listo");
         const categoria = tipoDestino === "insumo" ? "insumo" : "otro";
-        await finalizarPendiente(chatId, pendienteId, categoria, null);
+        await finalizarPendiente(chatId, pendienteId, categoria, null, empresaId);
         return;
       }
 
@@ -223,7 +245,7 @@ async function procesarUpdate(update: any) {
         const pendienteId = Number(pendienteIdStr);
 
         await responderCallback(update.callback_query.id, "Listo");
-        await finalizarPendiente(chatId, pendienteId, "servicio_tercero", camionId);
+        await finalizarPendiente(chatId, pendienteId, "servicio_tercero", camionId, empresaId);
         return;
       }
 
@@ -234,12 +256,39 @@ async function procesarUpdate(update: any) {
     if (!mensaje) return;
 
     const chatId = mensaje.chat.id;
+    const vinculo = await obtenerVinculo(chatId);
 
-    // /start o texto sin foto: explicar cómo funciona
+    // Paso 0: este chat todavía no está asociado a ninguna empresa.
+    // Le pedimos el código antes de mostrar nada más.
+    if (!vinculo || !vinculo.empresa_id) {
+      const texto = (mensaje.text ?? "").trim();
+
+      if (!texto || texto === "/start") {
+        await pedirCodigoEmpresa(chatId);
+        return;
+      }
+
+      const empresa = await buscarEmpresaPorCodigo(texto);
+      if (!empresa) {
+        await enviarMensaje(chatId, "No reconozco ese código. Pedíselo al dueño de tu empresa y escribilo tal cual.");
+        return;
+      }
+
+      await supabaseAdmin
+        .from("telegram_vinculos")
+        .upsert({ chat_id: chatId, empresa_id: empresa.id, rol: null, camion_id: null });
+
+      await enviarMensaje(chatId, `✅ Empresa reconocida: *${empresa.nombre}*.`);
+      await pedirVinculacion(chatId, empresa.id);
+      return;
+    }
+
+    const empresaId = vinculo.empresa_id;
+
+    // /start o texto sin foto: explicar cómo funciona (o pedir que elija su rol)
     if (!mensaje.photo) {
-      const vinculo = await obtenerVinculo(chatId);
-      if (!vinculo) {
-        await pedirVinculacion(chatId);
+      if (!vinculo.rol) {
+        await pedirVinculacion(chatId, empresaId);
       } else if (vinculo.rol === "dueno") {
         await enviarMensaje(chatId, "Mandame una foto de la compra y te pregunto a dónde va.");
       } else {
@@ -249,22 +298,20 @@ async function procesarUpdate(update: any) {
     }
 
     // Llegó una foto
-    const vinculo = await obtenerVinculo(chatId);
-    if (!vinculo) {
-      await pedirVinculacion(chatId);
+    if (!vinculo.rol) {
+      await pedirVinculacion(chatId, empresaId);
       await enviarMensaje(chatId, "Elegí una opción arriba y volvé a mandar la foto.");
       return;
     }
 
-    // Telegram manda varias resoluciones, la última es la más grande
     const fotoFileId = mensaje.photo[mensaje.photo.length - 1].file_id;
 
     if (vinculo.rol === "dueno") {
       await iniciarSeleccionDestino(chatId, fotoFileId);
     } else if (vinculo.camion_id) {
-      await registrarGastoAutomatico(chatId, vinculo.camion_id, fotoFileId);
+      await registrarGastoAutomatico(chatId, vinculo.camion_id, empresaId, fotoFileId);
     } else {
-      await pedirVinculacion(chatId);
+      await pedirVinculacion(chatId, empresaId);
     }
   } catch (err) {
     console.error("Error procesando update de Telegram:", err);

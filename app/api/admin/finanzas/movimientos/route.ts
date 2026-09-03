@@ -5,24 +5,20 @@ import { supabaseAdmin } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
-async function obtenerSesion(request: Request) {
-  const claveAutomatizacion = request.headers.get("x-automation-key");
-  if (claveAutomatizacion && claveAutomatizacion === process.env.AUTOMATION_API_KEY) {
-    // El bot de Telegram autentica con clave, no con cookie de sesión.
-    // Por ahora, mientras solo exista una empresa, no restringe por empresa_id.
-    // TODO: cuando haya varias empresas usando el bot, pasar empresa_id explícito.
-    return { username: "automation", empresa_id: null as string | null };
-  }
-
-  const cookieStore = await cookies();
-  const token = cookieStore.get(NOMBRE_COOKIE)?.value;
-  return verificarSesion(token);
-}
-
 export async function GET(request: Request) {
-  const sesion = await obtenerSesion(request);
-  if (!sesion) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  const claveAutomatizacion = request.headers.get("x-automation-key");
+  let empresaId: string | null = null;
+
+  if (claveAutomatizacion && claveAutomatizacion === process.env.AUTOMATION_API_KEY) {
+    empresaId = null;
+  } else {
+    const cookieStore = await cookies();
+    const token = cookieStore.get(NOMBRE_COOKIE)?.value;
+    const sesion = await verificarSesion(token);
+    if (!sesion) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+    empresaId = sesion.empresa_id ?? null;
   }
 
   const { searchParams } = new URL(request.url);
@@ -35,8 +31,8 @@ export async function GET(request: Request) {
     .order("created_at", { ascending: false })
     .limit(parseInt(limite));
 
-  if (sesion.empresa_id) {
-    query = query.eq("empresa_id", sesion.empresa_id);
+  if (empresaId) {
+    query = query.eq("empresa_id", empresaId);
   }
 
   const { data, error } = await query;
@@ -49,12 +45,25 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const sesion = await obtenerSesion(request);
-  if (!sesion) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  const claveAutomatizacion = request.headers.get("x-automation-key");
+  const body = await request.json();
+
+  let empresaId: string | null = null;
+
+  if (claveAutomatizacion && claveAutomatizacion === process.env.AUTOMATION_API_KEY) {
+    // El bot de Telegram manda el empresa_id explícito en el body, porque
+    // no tiene una sesión de cookie (autentica con la clave).
+    empresaId = body.empresa_id ?? null;
+  } else {
+    const cookieStore = await cookies();
+    const token = cookieStore.get(NOMBRE_COOKIE)?.value;
+    const sesion = await verificarSesion(token);
+    if (!sesion) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+    empresaId = sesion.empresa_id ?? null;
   }
 
-  const body = await request.json();
   const {
     tipo,
     camion_id,
@@ -97,7 +106,7 @@ export async function POST(request: Request) {
           unidad: unidad_nueva ?? null,
           precio_unitario: precioCompraUnitario,
           stock_actual: cantidad,
-          empresa_id: sesion.empresa_id ?? null,
+          empresa_id: empresaId,
         })
         .select()
         .single();
@@ -171,7 +180,7 @@ export async function POST(request: Request) {
       descripcion: descripcion ?? null,
       fecha: fechaFinal,
       mantenimiento_id,
-      empresa_id: sesion.empresa_id ?? null,
+      empresa_id: empresaId,
     })
     .select()
     .single();

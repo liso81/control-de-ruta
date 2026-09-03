@@ -7,6 +7,7 @@ const APP_BASE_URL = process.env.APP_BASE_URL || "https://veracsistem.org";
 export async function registrarGastoEnPanel(params: {
   categoria: CategoriaGasto;
   camionId: string | null;
+  empresaId: string | null;
   monto: number;
   descripcion: string | null;
   proveedor: string | null;
@@ -17,6 +18,7 @@ export async function registrarGastoEnPanel(params: {
 }): Promise<{ ok: boolean; etiqueta: string }> {
   const body: Record<string, unknown> = {
     camion_id: params.camionId,
+    empresa_id: params.empresaId,
     monto: params.monto,
     proveedor: params.proveedor,
     descripcion: params.descripcion,
@@ -26,16 +28,17 @@ export async function registrarGastoEnPanel(params: {
     body.tipo = "gasto_insumo";
     body.cantidad = params.cantidad ?? 1;
 
-    // Buscamos si ya existe un producto con nombre parecido, para no duplicar
-    // y respetar el sistema de precio promedio del inventario.
+    // Buscamos si ya existe un producto con nombre parecido, DENTRO DE LA MISMA
+    // EMPRESA, para no duplicar y respetar el sistema de precio promedio.
     let productoIdEncontrado: string | null = null;
     if (params.producto_nombre) {
-      const { data: productoExistente } = await supabaseAdmin
+      let query = supabaseAdmin
         .from("productos")
         .select("id")
         .ilike("nombre", `%${params.producto_nombre}%`)
-        .limit(1)
-        .maybeSingle();
+        .limit(1);
+      if (params.empresaId) query = query.eq("empresa_id", params.empresaId);
+      const { data: productoExistente } = await query.maybeSingle();
       productoIdEncontrado = productoExistente?.id ?? null;
     }
 
