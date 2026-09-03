@@ -48,7 +48,9 @@ export async function POST(request: Request) {
     .insert({
       nombre,
       capacidad_litros,
-      litros_actual: capacidad_litros,
+      // Un camión recién dado de alta arranca vacío, no lleno — el agua real
+      // se carga después con la primera "compra_agua" que registre el chofer.
+      litros_actual: 0,
       matricula: matricula ?? null,
       marca: marca ?? null,
       km_por_litro: km_por_litro ?? null,
