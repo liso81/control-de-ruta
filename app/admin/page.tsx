@@ -1902,8 +1902,11 @@ function PanelChoferes() {
           <div className="space-y-2">
             {pendientes.map((s) => (
               <div key={s.id} className="bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4">
-                <p className="text-sm text-[var(--color-ink-soft)] mb-2">
-                  Solicitud nueva · {new Date(s.created_at).toLocaleString("es")}
+                <p className="text-sm font-semibold text-[var(--color-ink)] mb-1">
+                  {s.telefono || "Sin número"}
+                </p>
+                <p className="text-xs text-[var(--color-ink-soft)] mb-2">
+                  Solicitó acceso · {new Date(s.created_at).toLocaleString("es")}
                 </p>
                 <select
                   value={camionElegido[s.id] ?? ""}

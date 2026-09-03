@@ -27,7 +27,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ toke
 export async function POST(request: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const body = await request.json();
-  const { device_id } = body;
+  const { device_id, telefono } = body;
 
   if (!device_id) {
     return NextResponse.json({ error: "Falta device_id" }, { status: 400 });
@@ -58,7 +58,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
 
   const { data: nuevo, error } = await supabaseAdmin
     .from("chofer_dispositivos")
-    .insert({ empresa_id: invitacion.empresa_id, device_id, estado: "pendiente" })
+    .insert({
+      empresa_id: invitacion.empresa_id,
+      device_id,
+      telefono: telefono?.trim() || null,
+      estado: "pendiente",
+    })
     .select()
     .single();
 

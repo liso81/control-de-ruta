@@ -11,7 +11,9 @@ export default function UnirsePage() {
 
   const [estado, setEstado] = useState<Estado>("cargando");
   const [empresaNombre, setEmpresaNombre] = useState("");
+  const [telefono, setTelefono] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const [error, setError] = useState("");
 
   function obtenerDeviceId() {
     let id = localStorage.getItem("device_id");
@@ -56,12 +58,17 @@ export default function UnirsePage() {
   }
 
   async function solicitarAcceso() {
+    if (!telefono.trim()) {
+      setError("Escribí tu número de teléfono");
+      return;
+    }
+    setError("");
     setEnviando(true);
     const deviceId = obtenerDeviceId();
     const res = await fetch(`/api/unirse/${token}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ device_id: deviceId }),
+      body: JSON.stringify({ device_id: deviceId, telefono: telefono.trim() }),
     });
     const json = await res.json();
     setEnviando(false);
@@ -113,10 +120,19 @@ export default function UnirsePage() {
       {estado === "inicial" && (
         <>
           <h1 className="font-display text-2xl font-bold mb-1 text-[var(--color-ink)]">Solicitar acceso</h1>
-          <p className="text-sm text-[var(--color-ink-soft)] mb-5">
+          <p className="text-sm text-[var(--color-ink-soft)] mb-4">
             Vas a pedir acceso a <strong>{empresaNombre}</strong>. El dueño va a elegir a qué camión queda vinculado
             este teléfono.
           </p>
+          <p className="text-sm text-[var(--color-ink-soft)] mb-1">Tu número de teléfono</p>
+          <input
+            type="tel"
+            value={telefono}
+            onChange={(e) => setTelefono(e.target.value)}
+            placeholder="Ej: 923 123 456"
+            className="w-full rounded-xl border border-[var(--color-border)] bg-white px-3 py-2.5 text-[15px] mb-2 focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
+          />
+          {error && <p className="text-[var(--color-danger)] text-sm mb-2">{error}</p>}
           <button
             onClick={solicitarAcceso}
             disabled={enviando}
