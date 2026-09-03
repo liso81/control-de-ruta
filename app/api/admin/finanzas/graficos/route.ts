@@ -15,19 +15,44 @@ export async function GET() {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
-  const { data: camiones } = await supabaseAdmin.from("camiones").select("id, nombre, matricula");
-  const { data: turnos } = await supabaseAdmin.from("turnos").select("id, camion_id");
-  const { data: movimientos } = await supabaseAdmin
-    .from("movimientos")
-    .select("tipo, efectivo, transferencia, litros, monto, turno_id, created_at");
-  const { data: cxc } = await supabaseAdmin
-    .from("cuentas_por_cobrar")
-    .select("monto, camion_id, estado, fecha_cobro")
-    .eq("estado", "cobrado");
-  const { data: finanzas } = await supabaseAdmin
-    .from("finanzas_movimientos")
-    .select("tipo, monto, camion_id, fecha");
-  const { data: provisionEntradas } = await supabaseAdmin.from("mayor_provision").select("tipo, monto, fecha");
+  const empresaId = sesion.empresa_id ?? null;
+
+  let queryCamiones = supabaseAdmin.from("camiones").select("id, nombre, matricula");
+  if (empresaId) queryCamiones = queryCamiones.eq("empresa_id", empresaId);
+  const { data: camiones } = await queryCamiones;
+  const camionIds = (camiones ?? []).map((c) => c.id);
+
+  const { data: turnos } =
+    camionIds.length > 0
+      ? await supabaseAdmin.from("turnos").select("id, camion_id").in("camion_id", camionIds)
+      : { data: [] };
+  const turnoIds = (turnos ?? []).map((t) => t.id);
+
+  const { data: movimientos } =
+    turnoIds.length > 0
+      ? await supabaseAdmin
+          .from("movimientos")
+          .select("tipo, efectivo, transferencia, litros, monto, turno_id, created_at")
+          .in("turno_id", turnoIds)
+      : { data: [] };
+
+  const { data: cxc } =
+    camionIds.length > 0
+      ? await supabaseAdmin
+          .from("cuentas_por_cobrar")
+          .select("monto, camion_id, estado, fecha_cobro")
+          .eq("estado", "cobrado")
+          .in("camion_id", camionIds)
+      : { data: [] };
+
+  let queryFinanzas = supabaseAdmin.from("finanzas_movimientos").select("tipo, monto, camion_id, fecha");
+  if (empresaId) queryFinanzas = queryFinanzas.eq("empresa_id", empresaId);
+  const { data: finanzas } = await queryFinanzas;
+
+  const { data: provisionEntradas } =
+    camionIds.length > 0
+      ? await supabaseAdmin.from("mayor_provision").select("tipo, monto, fecha, camion_id").in("camion_id", camionIds)
+      : { data: [] };
 
   const mapaTurnoCamion = new Map((turnos ?? []).map((t) => [t.id, t.camion_id]));
 

@@ -5,33 +5,41 @@ import { supabaseAdmin } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
-async function requiereSesionOApiKey(request: Request) {
+async function obtenerSesion(request: Request) {
   const claveAutomatizacion = request.headers.get("x-automation-key");
   if (claveAutomatizacion && claveAutomatizacion === process.env.AUTOMATION_API_KEY) {
-    return true;
+    // El bot de Telegram autentica con clave, no con cookie de sesión.
+    // Por ahora, mientras solo exista una empresa, no restringe por empresa_id.
+    // TODO: cuando haya varias empresas usando el bot, pasar empresa_id explícito.
+    return { username: "automation", empresa_id: null as string | null };
   }
 
   const cookieStore = await cookies();
   const token = cookieStore.get(NOMBRE_COOKIE)?.value;
-  const sesion = await verificarSesion(token);
-  return !!sesion;
+  return verificarSesion(token);
 }
 
 export async function GET(request: Request) {
-  const autorizado = await requiereSesionOApiKey(request);
-  if (!autorizado) {
+  const sesion = await obtenerSesion(request);
+  if (!sesion) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
   const { searchParams } = new URL(request.url);
   const limite = searchParams.get("limite") ?? "50";
 
-  const { data, error } = await supabaseAdmin
+  let query = supabaseAdmin
     .from("finanzas_movimientos")
     .select("*, camion:camiones(nombre, matricula), producto:productos(nombre)")
     .order("fecha", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(parseInt(limite));
+
+  if (sesion.empresa_id) {
+    query = query.eq("empresa_id", sesion.empresa_id);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -41,8 +49,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const autorizado = await requiereSesionOApiKey(request);
-  if (!autorizado) {
+  const sesion = await obtenerSesion(request);
+  if (!sesion) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
@@ -89,6 +97,7 @@ export async function POST(request: Request) {
           unidad: unidad_nueva ?? null,
           precio_unitario: precioCompraUnitario,
           stock_actual: cantidad,
+          empresa_id: sesion.empresa_id ?? null,
         })
         .select()
         .single();
@@ -162,6 +171,7 @@ export async function POST(request: Request) {
       descripcion: descripcion ?? null,
       fecha: fechaFinal,
       mantenimiento_id,
+      empresa_id: sesion.empresa_id ?? null,
     })
     .select()
     .single();
