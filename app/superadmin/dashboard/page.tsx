@@ -99,6 +99,10 @@ export default function SuperadminDashboard() {
     }
   }
 
+  const [mostrarRespaldos, setMostrarRespaldos] = useState(false);
+  const [respaldosGuardados, setRespaldosGuardados] = useState<{ nombre: string; creado: string; url: string | null }[]>([]);
+  const [mostrarRestaurar, setMostrarRestaurar] = useState(false);
+
   async function marcarEnviado(id: string) {
     await fetch("/api/superadmin/notificaciones", {
       method: "PATCH",
@@ -138,6 +142,15 @@ export default function SuperadminDashboard() {
     URL.revokeObjectURL(url);
   }
 
+  async function cargarRespaldosGuardados() {
+    setMostrarRespaldos(!mostrarRespaldos);
+    if (respaldosGuardados.length === 0) {
+      const res = await fetch("/api/superadmin/respaldos");
+      const json = await res.json();
+      setRespaldosGuardados(json.respaldos ?? []);
+    }
+  }
+
   return (
     <main className="min-h-screen bg-[#F5F5F0] pb-24">
       <header className="bg-white border-b border-gray-100 px-5 py-4 flex items-center justify-between sticky top-0 z-10">
@@ -152,6 +165,18 @@ export default function SuperadminDashboard() {
             Respaldo del sistema
           </button>
           <button
+            onClick={cargarRespaldosGuardados}
+            className="rounded-full border border-gray-200 text-gray-600 text-sm px-4 py-2 font-medium"
+          >
+            Respaldos guardados
+          </button>
+          <button
+            onClick={() => setMostrarRestaurar(true)}
+            className="rounded-full border border-red-200 text-red-600 text-sm px-4 py-2 font-medium"
+          >
+            Restaurar
+          </button>
+          <button
             onClick={() => setMostrarForm(true)}
             className="rounded-full bg-[#0E7C7B] text-white text-sm px-4 py-2 font-medium"
           >
@@ -161,6 +186,27 @@ export default function SuperadminDashboard() {
       </header>
 
       <div className="px-5 py-5 space-y-8">
+        {mostrarRespaldos && (
+          <section className="bg-white rounded-2xl p-4 space-y-2">
+            <p className="text-sm font-semibold text-gray-700">Respaldos guardados (automáticos, semanales)</p>
+            {respaldosGuardados.length === 0 && (
+              <p className="text-xs text-gray-400">Todavía no hay respaldos automáticos guardados.</p>
+            )}
+            {respaldosGuardados.map((r) => (
+              <div key={r.nombre} className="flex justify-between items-center text-sm">
+                <span>{r.nombre}</span>
+                {r.url ? (
+                  <a href={r.url} className="text-[#0E7C7B] font-medium text-xs underline">
+                    Descargar
+                  </a>
+                ) : (
+                  <span className="text-xs text-gray-400">Sin link</span>
+                )}
+              </div>
+            ))}
+          </section>
+        )}
+
         {notificaciones.length > 0 && (
           <section className="space-y-3">
             <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
@@ -285,6 +331,10 @@ export default function SuperadminDashboard() {
         </section>
       </div>
 
+      {mostrarRestaurar && (
+        <ModalRestaurar onClose={() => setMostrarRestaurar(false)} empresas={empresas} onRestaurado={cargarDatos} />
+      )}
+
       {mostrarForm && (
         <FormularioNuevaEmpresa
           onClose={() => setMostrarForm(false)}
@@ -295,6 +345,157 @@ export default function SuperadminDashboard() {
         />
       )}
     </main>
+  );
+}
+
+function ModalRestaurar({
+  onClose,
+  empresas,
+  onRestaurado,
+}: {
+  onClose: () => void;
+  empresas: Empresa[];
+  onRestaurado: () => void;
+}) {
+  const [archivo, setArchivo] = useState<any>(null);
+  const [nombreArchivo, setNombreArchivo] = useState("");
+  const [modo, setModo] = useState<"todo" | "empresa">("empresa");
+  const [empresaId, setEmpresaId] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [resultado, setResultado] = useState<string | null>(null);
+  const [error, setError] = useState("");
+
+  function elegirArchivo(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setNombreArchivo(file.name);
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        setArchivo(JSON.parse(reader.result as string));
+        setError("");
+      } catch {
+        setError("Ese archivo no es un respaldo JSON válido.");
+        setArchivo(null);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  async function confirmarRestaurar() {
+    if (!archivo) {
+      setError("Elegí primero un archivo de respaldo.");
+      return;
+    }
+    if (modo === "empresa" && !empresaId) {
+      setError("Elegí qué empresa restaurar.");
+      return;
+    }
+
+    const frase = modo === "todo" ? "RESTAURAR TODO" : "RESTAURAR";
+    const confirmacion = window.prompt(
+      `Esto va a ${modo === "todo" ? "BORRAR Y REEMPLAZAR TODO EL SISTEMA" : "borrar y reemplazar los datos de esa empresa"} con lo que hay en el archivo. No se puede deshacer.\n\nEscribí "${frase}" para confirmar:`
+    );
+    if (confirmacion !== frase) {
+      if (confirmacion !== null) window.alert("No coincide, no se restauró nada.");
+      return;
+    }
+
+    setEnviando(true);
+    setError("");
+    const res = await fetch("/api/superadmin/restaurar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ modo, empresaId: modo === "empresa" ? empresaId : undefined, datos: archivo }),
+    });
+    const json = await res.json();
+    setEnviando(false);
+
+    if (json.error) {
+      setError(json.error);
+      return;
+    }
+    setResultado(json.passwordTemporal);
+    onRestaurado();
+  }
+
+  const empresasDelArchivo: { id: string; nombre: string }[] = archivo?.empresas ?? [];
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-20">
+      <div className="w-full sm:max-w-sm bg-white rounded-t-2xl sm:rounded-2xl p-6 space-y-4">
+        {resultado ? (
+          <>
+            <h2 className="font-semibold" style={{ fontFamily: "Space Grotesk, sans-serif" }}>
+              ✅ Restauración completa
+            </h2>
+            <p className="text-sm text-gray-500">
+              Los usuarios restaurados quedaron con esta contraseña temporal (avisales que la cambien):
+            </p>
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-center">
+              <p className="font-mono text-lg font-bold text-[#0E7C7B]">{resultado}</p>
+            </div>
+            <button onClick={onClose} className="w-full rounded-xl bg-[#0E7C7B] text-white py-3 text-sm font-medium">
+              Listo
+            </button>
+          </>
+        ) : (
+          <>
+            <h2 className="font-semibold text-red-600" style={{ fontFamily: "Space Grotesk, sans-serif" }}>
+              Restaurar desde respaldo
+            </h2>
+            <p className="text-xs text-gray-500">
+              Los logins restaurados no traen contraseña (por seguridad) — van a quedar con una contraseña temporal
+              que te vamos a mostrar al final.
+            </p>
+
+            <input type="file" accept="application/json" onChange={elegirArchivo} className="text-sm" />
+            {nombreArchivo && <p className="text-xs text-gray-500">Archivo: {nombreArchivo}</p>}
+
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm">
+                <input type="radio" checked={modo === "empresa"} onChange={() => setModo("empresa")} />
+                Restaurar solo una empresa
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="radio" checked={modo === "todo"} onChange={() => setModo("todo")} />
+                Restaurar TODO el sistema
+              </label>
+            </div>
+
+            {modo === "empresa" && (
+              <select
+                value={empresaId}
+                onChange={(e) => setEmpresaId(e.target.value)}
+                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm"
+              >
+                <option value="">Elegí una empresa del archivo</option>
+                {empresasDelArchivo.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.nombre}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {error && <p className="text-sm text-red-600">{error}</p>}
+
+            <div className="flex gap-2 pt-2">
+              <button onClick={onClose} className="flex-1 rounded-xl border border-gray-200 py-3 text-sm text-gray-500">
+                Cancelar
+              </button>
+              <button
+                onClick={confirmarRestaurar}
+                disabled={enviando}
+                className="flex-1 rounded-xl bg-red-600 text-white py-3 text-sm font-medium disabled:opacity-60"
+              >
+                {enviando ? "Restaurando..." : "Restaurar"}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 
