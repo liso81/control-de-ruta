@@ -141,19 +141,25 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     return NextResponse.json({ error: "Movimiento no encontrado" }, { status: 404 });
   }
 
-  // Si era una venta con litros, devolvemos esos litros al camión antes de borrar el registro.
-  if (movimiento.tipo === "venta" && movimiento.litros) {
-    const { data: turno } = await supabaseAdmin
-      .from("turnos")
-      .select("camion_id")
-      .eq("id", movimiento.turno_id)
-      .single();
+  if (movimiento.tipo === "venta") {
+    // Si esta venta tenía una parte a crédito, borramos también la cuenta
+    // por cobrar asociada (si no, la base no deja borrar la venta).
+    await supabaseAdmin.from("cuentas_por_cobrar").delete().eq("movimiento_id", id);
 
-    if (turno?.camion_id) {
-      await supabaseAdmin.rpc("restar_litros", {
-        camion_id_param: turno.camion_id,
-        litros_param: -movimiento.litros,
-      });
+    // Si tenía litros, los devolvemos al camión antes de borrar el registro.
+    if (movimiento.litros) {
+      const { data: turno } = await supabaseAdmin
+        .from("turnos")
+        .select("camion_id")
+        .eq("id", movimiento.turno_id)
+        .single();
+
+      if (turno?.camion_id) {
+        await supabaseAdmin.rpc("restar_litros", {
+          camion_id_param: turno.camion_id,
+          litros_param: -movimiento.litros,
+        });
+      }
     }
   }
 
