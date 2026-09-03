@@ -19,6 +19,7 @@ export default function Home() {
   const [cargando, setCargando] = useState(true);
   const [camion, setCamion] = useState<Camion | null>(null);
   const [camiones, setCamiones] = useState<Camion[]>([]);
+  const [errorCamiones, setErrorCamiones] = useState("");
   const [turno, setTurno] = useState<Turno | null>(null);
   const [pideNombre, setPideNombre] = useState(false);
   const [nombreInput, setNombreInput] = useState("");
@@ -35,6 +36,7 @@ export default function Home() {
     if (!camionGuardado) {
       const res = await fetch("/api/camiones");
       const json = await res.json();
+      if (json.error) setErrorCamiones(json.error);
       setCamiones(json.camiones ?? []);
       setCargando(false);
       return;
@@ -202,7 +204,9 @@ export default function Home() {
               </div>
             </button>
           ))}
-          {camiones.length === 0 && <p className="text-[var(--color-ink-soft)]">No hay camiones cargados todavía.</p>}
+          {camiones.length === 0 && (
+            <p className="text-[var(--color-ink-soft)]">{errorCamiones || "No hay camiones cargados todavía."}</p>
+          )}
         </div>
       </main>
     );
