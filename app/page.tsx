@@ -45,7 +45,7 @@ export default function Home() {
   }
 
   async function recargarCamion(camionId: string) {
-    const res = await fetch("/api/camiones");
+    const res = await fetch(`/api/camiones?camion_id=${camionId}`);
     const json = await res.json();
     const actualizado = (json.camiones ?? []).find((c: Camion) => c.id === camionId);
     if (actualizado) setCamion(actualizado);
