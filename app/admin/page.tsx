@@ -1902,9 +1902,15 @@ function PanelChoferes() {
           <div className="space-y-2">
             {pendientes.map((s) => (
               <div key={s.id} className="bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4">
-                <p className="text-sm font-semibold text-[var(--color-ink)] mb-1">
-                  {s.telefono || "Sin número"}
-                </p>
+                <div className="flex justify-between items-center mb-1">
+                  {s.telefono ? (
+                    <a href={`tel:${s.telefono}`} className="text-sm font-semibold text-[var(--color-accent)] underline">
+                      📞 {s.telefono}
+                    </a>
+                  ) : (
+                    <p className="text-sm font-semibold text-[var(--color-ink)]">Sin número</p>
+                  )}
+                </div>
                 <p className="text-xs text-[var(--color-ink-soft)] mb-2">
                   Solicitó acceso · {new Date(s.created_at).toLocaleString("es")}
                 </p>
@@ -1920,13 +1926,21 @@ function PanelChoferes() {
                     </option>
                   ))}
                 </select>
-                <button
-                  onClick={() => aprobar(s.id)}
-                  disabled={!camionElegido[s.id] || aprobando === s.id}
-                  className="w-full rounded-xl bg-[var(--color-accent)] text-white font-semibold py-2 text-sm active:scale-[0.98] transition disabled:opacity-50"
-                >
-                  {aprobando === s.id ? "Aprobando..." : "Aprobar"}
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => aprobar(s.id)}
+                    disabled={!camionElegido[s.id] || aprobando === s.id}
+                    className="flex-1 rounded-xl bg-[var(--color-accent)] text-white font-semibold py-2 text-sm active:scale-[0.98] transition disabled:opacity-50"
+                  >
+                    {aprobando === s.id ? "Aprobando..." : "Aprobar"}
+                  </button>
+                  <button
+                    onClick={() => revocar(s.id)}
+                    className="rounded-xl border border-[var(--color-danger)] text-[var(--color-danger)] bg-white px-3 py-2 text-sm active:scale-95 transition"
+                  >
+                    Rechazar
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -1943,7 +1957,14 @@ function PanelChoferes() {
                 key={s.id}
                 className="bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-3 flex justify-between items-center"
               >
-                <span className="text-sm">{s.camion?.matricula || s.camion?.nombre || "Camión"}</span>
+                <div>
+                  <p className="text-sm font-medium">{s.camion?.matricula || s.camion?.nombre || "Camión"}</p>
+                  {s.telefono && (
+                    <a href={`tel:${s.telefono}`} className="text-xs text-[var(--color-accent)] underline">
+                      📞 {s.telefono}
+                    </a>
+                  )}
+                </div>
                 <button
                   onClick={() => revocar(s.id)}
                   className="text-xs font-medium rounded-lg border border-[var(--color-danger)] text-[var(--color-danger)] bg-white px-2 py-1 active:scale-95 transition"
