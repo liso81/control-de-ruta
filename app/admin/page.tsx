@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import { formatearMonto } from "@/lib/formato";
 import {
   BarChart,
   Bar,
@@ -475,7 +476,7 @@ function PanelVehiculos() {
                 <div>
                   <p className="font-display font-semibold text-[var(--color-ink)]">{c.matricula || c.nombre}</p>
                   <p className="text-sm text-[var(--color-ink-soft)]">
-                    {c.nombre} · {c.litros_actual.toFixed(2)} L / {c.capacidad_litros.toFixed(2)} L
+                    {c.nombre} · {formatearMonto(c.litros_actual)} L / {formatearMonto(c.capacidad_litros)} L
                   </p>
                   {(c.marca || c.km_por_litro) && (
                     <p className="text-xs text-[var(--color-ink-soft)] opacity-70">
@@ -599,7 +600,7 @@ function PanelOperaciones() {
           >
             <p className="font-display font-semibold text-[var(--color-ink)]">{c.matricula || c.nombre}</p>
             <p className="text-sm text-[var(--color-ink-soft)]">
-              {c.nombre} · {c.litros_actual.toFixed(2)} L / {c.capacidad_litros.toFixed(2)} L
+              {c.nombre} · {formatearMonto(c.litros_actual)} L / {formatearMonto(c.capacidad_litros)} L
             </p>
           </button>
         ))}
@@ -641,7 +642,7 @@ function DetalleCamion({ camion, onVolver }: { camion: Camion; onVolver: () => v
       </button>
       <h2 className="font-display font-semibold mb-1 text-[var(--color-ink)]">{camion.matricula || camion.nombre}</h2>
       <p className="text-sm text-[var(--color-ink-soft)] mb-3">
-        {camion.nombre} · {camion.litros_actual.toFixed(2)} L / {camion.capacidad_litros.toFixed(2)} L
+        {camion.nombre} · {formatearMonto(camion.litros_actual)} L / {formatearMonto(camion.capacidad_litros)} L
       </p>
 
       {cargando && <p className="text-[var(--color-ink-soft)]">Cargando...</p>}
@@ -783,7 +784,7 @@ function DetalleTurno({ turno, onVolver }: { turno: Turno; onVolver: () => void 
             <span>
               venta {m.litros ? `· ${m.litros}L` : ""} {m.cliente_nota ? `· ${m.cliente_nota}` : ""}
             </span>
-            <span className="text-[var(--color-ok)]">+{(m.monto ?? 0).toFixed(2)}</span>
+            <span className="text-[var(--color-ok)]">+{formatearMonto(m.monto ?? 0)}</span>
           </div>
         ))}
         {ventas.length === 0 && <p className="text-sm text-[var(--color-ink-soft)]">Sin ventas.</p>}
@@ -799,7 +800,7 @@ function DetalleTurno({ turno, onVolver }: { turno: Turno; onVolver: () => void 
               {g.concepto}
               {g.cantidad > 1 ? ` (×${g.cantidad})` : ""}
             </span>
-            <span className="text-[var(--color-danger)]">-{g.total.toFixed(2)}</span>
+            <span className="text-[var(--color-danger)]">-{formatearMonto(g.total)}</span>
           </div>
         ))}
         {compras.length === 0 && gastos.length === 0 && (
@@ -961,7 +962,7 @@ function PanelInventario() {
                 <div>
                   <p className="font-display font-semibold text-[var(--color-ink)]">{p.nombre}</p>
                   <p className="text-sm text-[var(--color-ink-soft)]">
-                    Precio: {p.precio_unitario.toFixed(2)} {p.unidad ? `/ ${p.unidad}` : ""} · Stock: {p.stock_actual}
+                    Precio: {formatearMonto(p.precio_unitario)} {p.unidad ? `/ ${p.unidad}` : ""} · Stock: {p.stock_actual}
                   </p>
                 </div>
                 <button onClick={() => empezarEdicion(p)} className="text-xs font-medium rounded-lg border border-[var(--color-border)] px-2.5 py-1.5 active:scale-95 transition">
@@ -1553,7 +1554,7 @@ function DetalleMantenimientoCamion({ camion, onVolver }: { camion: Camion; onVo
             </div>
             <p className="text-[var(--color-ink-soft)]">
               {m.km ? `${Math.round(m.km).toLocaleString()} km · ` : ""}
-              Costo total: {(m.costo_total ?? 0).toFixed(2)}
+              Costo total: {formatearMonto(m.costo_total ?? 0)}
             </p>
           </button>
         ))}
@@ -1601,7 +1602,7 @@ function ExpedienteMantenimiento({ mantenimiento, onVolver }: { mantenimiento: M
                   <span>
                     {p.producto_nombre} × {p.cantidad}
                   </span>
-                  <span>{p.subtotal.toFixed(2)}</span>
+                  <span>{formatearMonto(p.subtotal)}</span>
                 </div>
               ))}
             </div>
@@ -1626,7 +1627,7 @@ function ExpedienteMantenimiento({ mantenimiento, onVolver }: { mantenimiento: M
           )}
 
           <div className="border-t pt-2">
-            <p className="font-bold">Costo total: {(detalle.costo_total ?? 0).toFixed(2)}</p>
+            <p className="font-bold">Costo total: {formatearMonto(detalle.costo_total ?? 0)}</p>
           </div>
         </>
       )}
@@ -2098,8 +2099,8 @@ function PanelReportes() {
                   {a.diasParado} día{a.diasParado === 1 ? "" : "s"} parado desde {a.fecha_inicio}
                 </p>
                 <p className="text-sm font-semibold">
-                  Representa ≈ {a.costoEstimado.toFixed(2)} en utilidad no generada
-                  {a.utilidadDiariaPromedio > 0 ? ` (${a.utilidadDiariaPromedio.toFixed(2)}/día promedio)` : ""}
+                  Representa ≈ {formatearMonto(a.costoEstimado)} en utilidad no generada
+                  {a.utilidadDiariaPromedio > 0 ? ` (${formatearMonto(a.utilidadDiariaPromedio)}/día promedio)` : ""}
                 </p>
               </div>
             ))}
@@ -2117,7 +2118,7 @@ function PanelReportes() {
                   {iconos[a.estado]} {a.cliente_nombre} {a.cliente_telefono ? `· ${a.cliente_telefono}` : ""}
                 </p>
                 <p className="text-sm">
-                  Monto: {a.monto.toFixed(2)} · {a.dias_antiguedad} días desde la venta
+                  Monto: {formatearMonto(a.monto)} · {a.dias_antiguedad} días desde la venta
                   {a.camion_matricula ? ` · ${a.camion_matricula}` : a.camion_nombre ? ` · ${a.camion_nombre}` : ""}
                 </p>
               </div>
@@ -2250,7 +2251,7 @@ function PanelCuentasPorCobrar() {
                   )}
                 </div>
                 <div className="text-right">
-                  <p className="font-bold">{c.monto.toFixed(2)}</p>
+                  <p className="font-bold">{formatearMonto(c.monto)}</p>
                   {c.estado === "pendiente" && (
                     <button
                       onClick={() => marcarCobrado(c.id)}
@@ -2514,7 +2515,7 @@ function FormularioProvision({ camion, onVolver }: { camion: Camion; onVolver: (
               {saldos.map((s) => (
                 <div key={s.submayor} className="flex justify-between text-sm">
                   <span className="capitalize">{s.submayor.replace(/_/g, " ")}</span>
-                  <span>{s.saldo.toFixed(2)}</span>
+                  <span>{formatearMonto(s.saldo)}</span>
                 </div>
               ))}
             </div>
@@ -2666,7 +2667,7 @@ function FilaFlujo({ label, valor, negrita, negativo }: { label: string; valor: 
       <span>{label}</span>
       <span className={negativo ? "text-[var(--color-danger)]" : ""}>
         {negativo ? "-" : ""}
-        {Math.abs(valor).toFixed(2)}
+        {formatearMonto(Math.abs(valor))}
       </span>
     </div>
   );
@@ -2834,7 +2835,7 @@ function PanelFinanzas() {
         <div className={`rounded-2xl shadow-sm p-4 border ${paso.utilidadReal >= 0 ? "bg-[var(--color-ok-soft)] border-[var(--color-ok)]" : "bg-[var(--color-danger-soft)] border-[var(--color-danger)]"}`}>
           <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Utilidad real</p>
           <p className={`font-bold text-lg ${paso.utilidadReal >= 0 ? "text-[var(--color-ok)]" : "text-[var(--color-danger)]"}`}>
-            {paso.utilidadReal.toFixed(2)}
+            {formatearMonto(paso.utilidadReal)}
           </p>
         </div>
         <div className="bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4">
@@ -2847,11 +2848,11 @@ function PanelFinanzas() {
         </div>
         <div className="bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4">
           <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Efectivo real a operar</p>
-          <p className="font-bold text-lg">{paso.efectivoRealAOperar.toFixed(2)}</p>
+          <p className="font-bold text-lg">{formatearMonto(paso.efectivoRealAOperar)}</p>
         </div>
         <div className="bg-white rounded-2xl border border-[var(--color-border)] shadow-sm p-4">
           <p className="text-xs font-medium text-[var(--color-ink-soft)] mb-1 block">Ingresos</p>
-          <p className="font-bold text-lg">{paso.ingresosTotal.toFixed(2)}</p>
+          <p className="font-bold text-lg">{formatearMonto(paso.ingresosTotal)}</p>
         </div>
       </div>
 
@@ -2942,7 +2943,7 @@ function PanelFinanzas() {
                   {i + 1}. {c.camion_matricula || c.camion_nombre}
                 </span>
                 <span className={c.utilidadPorLitro >= 0 ? "text-[var(--color-ok)]" : "text-[var(--color-danger)]"}>
-                  {c.utilidadPorLitro >= 0 ? "Gana" : "Pierde"} {Math.abs(c.utilidadPorLitro).toFixed(2)} / L
+                  {c.utilidadPorLitro >= 0 ? "Gana" : "Pierde"} {formatearMonto(Math.abs(c.utilidadPorLitro))} / L
                 </span>
               </div>
             ))}
@@ -3000,7 +3001,7 @@ function PanelFinanzas() {
                 {m.proveedor ? ` · ${m.proveedor}` : ""}
                 {m.camion ? ` · ${m.camion.matricula || m.camion.nombre}` : ""}
               </span>
-              <span className="text-[var(--color-danger)]">-{(m.monto ?? 0).toFixed(2)}</span>
+              <span className="text-[var(--color-danger)]">-{formatearMonto(m.monto ?? 0)}</span>
             </div>
           ))}
         </div>
@@ -3025,7 +3026,7 @@ function PanelFinanzas() {
                 <div className="flex justify-between">
                   <span className="font-medium">{m.tipo}</span>
                   <span className={m.monto >= 0 ? "text-[var(--color-ok)]" : "text-[var(--color-danger)]"}>
-                    {(m.monto ?? 0).toFixed(2)}
+                    {formatearMonto(m.monto ?? 0)}
                   </span>
                 </div>
                 <div className="text-xs text-[var(--color-ink-soft)]">
@@ -3090,7 +3091,7 @@ function PanelFinanzas() {
               </option>
               {productos.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.nombre} (precio prom.: {p.precio_unitario.toFixed(2)})
+                  {p.nombre} (precio prom.: {formatearMonto(p.precio_unitario)})
                 </option>
               ))}
             </select>

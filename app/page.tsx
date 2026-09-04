@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { formatearMonto } from "@/lib/formato";
 import type { Camion, Turno, Movimiento, TipoMovimiento } from "@/lib/tipos";
 
 const CATEGORIAS_GASTO = [
@@ -200,7 +201,7 @@ export default function Home() {
             >
               <div className="font-display font-semibold text-[var(--color-ink)]">{c.matricula || c.nombre}</div>
               <div className="text-sm text-[var(--color-ink-soft)]">
-                {c.nombre} · {c.litros_actual.toFixed(2)} L / {c.capacidad_litros.toFixed(2)} L
+                {c.nombre} · {formatearMonto(c.litros_actual)} L / {formatearMonto(c.capacidad_litros)} L
               </div>
             </button>
           ))}
@@ -259,7 +260,7 @@ export default function Home() {
         {turno.chofer_nombre} · {camion.matricula || camion.nombre}
       </p>
       <p className="mb-4">
-        Agua en existencia: <strong>{camion.litros_actual.toFixed(2)} L</strong> / {camion.capacidad_litros.toFixed(2)} L
+        Agua en existencia: <strong>{formatearMonto(camion.litros_actual)} L</strong> / {formatearMonto(camion.capacidad_litros)} L
       </p>
 
       <div className="grid grid-cols-4 gap-2 mb-4">
@@ -410,7 +411,7 @@ function TabResumen({
           {alertas.map((a) => (
             <p key={a.id} className="text-sm text-[var(--color-warn)]">
               {a.litros?.toFixed(2)} L sin vender
-              {a.monto ? ` · ≈ ${a.monto.toFixed(2)} dejados de ganar` : ""}
+              {a.monto ? ` · ≈ ${formatearMonto(a.monto)} dejados de ganar` : ""}
             </p>
           ))}
         </div>
@@ -682,13 +683,13 @@ function TabCompras({
               <div className="flex justify-between items-center">
                 <span>{m.tipo === "compra_agua" ? "Agua" : "Gasóleo"}</span>
                 <span className="flex items-center gap-2">
-                  {(m.monto ?? 0).toFixed(2)}
+                  {formatearMonto(m.monto ?? 0)}
                   <button onClick={() => empezarEdicion(m)} className="text-xs font-medium rounded-lg border border-[var(--color-border)] bg-white px-2 py-1 active:scale-95 transition">
                     Editar
                   </button>
                   <button
                     onClick={async () => {
-                      if (!window.confirm(`¿Eliminar esta compra de ${(m.monto ?? 0).toFixed(2)}? No se puede deshacer.`)) return;
+                      if (!window.confirm(`¿Eliminar esta compra de ${formatearMonto(m.monto ?? 0)}? No se puede deshacer.`)) return;
                       setEliminandoId(m.id);
                       await onEliminar(m.id);
                       setEliminandoId(null);
@@ -959,13 +960,13 @@ function TabVentas({
                   venta · {m.litros}L {m.cliente_nota ? `· ${m.cliente_nota}` : ""}
                 </span>
                 <span className="flex items-center gap-2">
-                  {(m.monto ?? 0).toFixed(2)}
+                  {formatearMonto(m.monto ?? 0)}
                   <button onClick={() => empezarEdicion(m)} className="text-xs font-medium rounded-lg border border-[var(--color-border)] bg-white px-2 py-1 active:scale-95 transition">
                     Editar
                   </button>
                   <button
                     onClick={async () => {
-                      if (!window.confirm(`¿Eliminar esta venta de ${(m.monto ?? 0).toFixed(2)}? No se puede deshacer.`)) return;
+                      if (!window.confirm(`¿Eliminar esta venta de ${formatearMonto(m.monto ?? 0)}? No se puede deshacer.`)) return;
                       setEliminandoId(m.id);
                       await onEliminar(m.id);
                       setEliminandoId(null);
@@ -1055,7 +1056,7 @@ function TabGastos({
 
   async function eliminar(m: Movimiento) {
     if (eliminandoId) return;
-    if (!window.confirm(`¿Eliminar este gasto de ${(m.monto ?? 0).toFixed(2)}? No se puede deshacer.`)) return;
+    if (!window.confirm(`¿Eliminar este gasto de ${formatearMonto(m.monto ?? 0)}? No se puede deshacer.`)) return;
     setEliminandoId(m.id);
     try {
       await onEliminar(m.id);
@@ -1154,7 +1155,7 @@ function TabGastos({
               <div className="flex justify-between items-center">
                 <span>{m.categoria}</span>
                 <span className="flex items-center gap-2">
-                  {(m.monto ?? 0).toFixed(2)}
+                  {formatearMonto(m.monto ?? 0)}
                   <button onClick={() => empezarEdicion(m)} className="text-xs font-medium rounded-lg border border-[var(--color-border)] bg-white px-2 py-1 active:scale-95 transition">
                     Editar
                   </button>
