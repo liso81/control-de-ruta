@@ -297,12 +297,13 @@ export default function Home() {
 
       {tab === "compras" && (
         <TabCompras
-          movimientos={compras}
-          camion={camion}
-          precioPromedioHoy={precioPromedioHoy}
-          onRegistrar={registrarMovimiento}
-          onEditar={editarMovimiento}
-        />
+        movimientos={compras}
+        camion={camion}
+        precioPromedioHoy={precioPromedioHoy}
+        onRegistrar={registrarMovimiento}
+        onEditar={editarMovimiento}
+        onEliminar={eliminarMovimiento}
+      />
       )}
 
       {tab === "ventas" && (
@@ -515,18 +516,21 @@ function TabCompras({
   precioPromedioHoy,
   onRegistrar,
   onEditar,
+  onEliminar,
 }: {
   movimientos: Movimiento[];
   camion: Camion;
   precioPromedioHoy: number | null;
   onRegistrar: (datos: Partial<Movimiento> & { tipo: TipoMovimiento }) => Promise<boolean>;
   onEditar: (id: string, datos: Partial<Movimiento>) => Promise<boolean>;
+  onEliminar: (id: string) => Promise<boolean>;
 }) {
   const [valorAgua, setValorAgua] = useState("");
   const [esGratis, setEsGratis] = useState(false);
   const [precioGasoleo, setPrecioGasoleo] = useState("");
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [montoEdit, setMontoEdit] = useState("");
+  const [eliminandoId, setEliminandoId] = useState<string | null>(null);
   const [procesandoAgua, setProcesandoAgua] = useState(false);
   const [procesandoGasoleo, setProcesandoGasoleo] = useState(false);
 
@@ -681,6 +685,18 @@ function TabCompras({
                   {(m.monto ?? 0).toFixed(2)}
                   <button onClick={() => empezarEdicion(m)} className="text-xs font-medium rounded-lg border border-[var(--color-border)] bg-white px-2 py-1 active:scale-95 transition">
                     Editar
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!window.confirm(`¿Eliminar esta compra de ${(m.monto ?? 0).toFixed(2)}? No se puede deshacer.`)) return;
+                      setEliminandoId(m.id);
+                      await onEliminar(m.id);
+                      setEliminandoId(null);
+                    }}
+                    disabled={eliminandoId === m.id}
+                    className="text-xs font-medium rounded-lg border border-[var(--color-danger)] text-[var(--color-danger)] bg-white px-2 py-1 active:scale-95 transition disabled:opacity-50"
+                  >
+                    {eliminandoId === m.id ? "..." : "Eliminar"}
                   </button>
                 </span>
               </div>
