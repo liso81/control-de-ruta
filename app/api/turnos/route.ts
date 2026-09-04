@@ -3,11 +3,11 @@ import { supabaseAdmin } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
-// Busca el turno abierto de HOY para un camión, o lo crea si no existe.
+// Busca el turno ABIERTO de un camión (sin importar la fecha), o lo crea si no hay ninguno.
+// Así, si el chofer no cerró ayer, hoy sigue retomando el mismo turno hasta que lo cierre.
 export async function POST(request: Request) {
   const body = await request.json();
   const { camion_id, chofer_nombre } = body;
-
   if (!camion_id) {
     return NextResponse.json({ error: "Falta camion_id" }, { status: 400 });
   }
@@ -18,8 +18,9 @@ export async function POST(request: Request) {
     .from("turnos")
     .select("*")
     .eq("camion_id", camion_id)
-    .eq("fecha", hoy)
     .eq("estado", "abierto")
+    .order("fecha", { ascending: false })
+    .limit(1)
     .maybeSingle();
 
   if (errorBusqueda) {
