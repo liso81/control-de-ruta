@@ -35,6 +35,19 @@ export default function Home() {
   async function iniciar() {
     const camionGuardado = localStorage.getItem("camion_id");
     if (!camionGuardado) {
+      // Si este teléfono ya fue aprobado antes (aunque haya tocado "Salir"),
+      // lo reconocemos solo, sin pedir el link de invitación de nuevo.
+      const deviceId = localStorage.getItem("device_id");
+      if (deviceId) {
+        const resEstado = await fetch(`/api/unirse/estado?device_id=${deviceId}`);
+        const jsonEstado = await resEstado.json();
+        if (jsonEstado.estado === "aprobado" && jsonEstado.camion_id) {
+          localStorage.setItem("camion_id", jsonEstado.camion_id);
+          await cargarCamionYTurno(jsonEstado.camion_id);
+          return;
+        }
+      }
+
       const res = await fetch("/api/camiones");
       const json = await res.json();
       if (json.error) setErrorCamiones(json.error);
@@ -242,6 +255,9 @@ export default function Home() {
 
   function salir() {
     localStorage.removeItem("camion_id");
+    // OJO: a propósito NO borramos "device_id" — así, si este teléfono ya
+    // fue aprobado, se re-vincula solo al volver a entrar, sin pedir el
+    // link de invitación de nuevo.
     window.location.reload();
   }
 

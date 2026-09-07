@@ -8,8 +8,26 @@ export async function GET(request: Request) {
   const device_id = searchParams.get("device_id");
   const token = searchParams.get("token");
 
-  if (!device_id || !token) {
-    return NextResponse.json({ error: "Faltan device_id o token" }, { status: 400 });
+  if (!device_id) {
+    return NextResponse.json({ error: "Falta device_id" }, { status: 400 });
+  }
+
+  // Si no viene token, buscamos directo por device_id (el device_id es único
+  // por teléfono, así que esto sirve para reconocer un teléfono ya aprobado
+  // sin tener que pasar de nuevo por el link de invitación).
+  if (!token) {
+    const { data: dispositivo } = await supabaseAdmin
+      .from("chofer_dispositivos")
+      .select("estado, camion_id")
+      .eq("device_id", device_id)
+      .eq("estado", "aprobado")
+      .maybeSingle();
+
+    if (!dispositivo) {
+      return NextResponse.json({ estado: "no_solicitado" });
+    }
+
+    return NextResponse.json({ estado: dispositivo.estado, camion_id: dispositivo.camion_id });
   }
 
   const { data: invitacion } = await supabaseAdmin
